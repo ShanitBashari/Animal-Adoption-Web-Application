@@ -8,6 +8,9 @@ import AddAnimalPage from "./pages/AddAnimalPage";
 import MyAnimalsPage from "./pages/MyAnimalsPage";
 import AdoptionRequestsPage from "./pages/AdoptionRequestsPage";
 import AdminPage from "./pages/AdminPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminRequestsPage from "./pages/AdminRequestsPage";
+import AdminAnimalsPage from "./pages/AdminAnimalsPage";
 import Navbar from "./components/Navbar";
 
 function App() {
@@ -23,6 +26,9 @@ function App() {
         <Route path="/my-animals" element={<MyAnimalsPage />} />
         <Route path="/requests" element={<AdoptionRequestsPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/requests" element={<AdminRequestsPage />} />
+        <Route path="/admin/animals" element={<AdminAnimalsPage />} />
       </Routes>
     </BrowserRouter>
   );

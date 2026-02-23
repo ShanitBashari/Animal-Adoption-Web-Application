@@ -68,11 +68,6 @@ function AnimalCard({ animal }) {
           Category: {animal.category}
         </Typography>
 
-        {animal.category === "Cat" && (
-          <Typography variant="caption" color="primary">
-            • Suitable for apartments
-          </Typography>
-        )}
       </CardContent>
 
     </Card>

@@ -10,9 +10,11 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Box
+  Box,
 } from "@mui/material";
 
+import PeopleIcon from "@mui/icons-material/People";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
 import PetsIcon from "@mui/icons-material/Pets";
@@ -22,13 +24,26 @@ import MailIcon from "@mui/icons-material/Mail";
 function Navbar() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+    
+const user = { role: "admin" };
 
-  const menuItems = [
-    { text: "Home", icon: <HomeIcon />, path: "/" },
-    { text: "My Animals", icon: <PetsIcon />, path: "/my-animals" },
-    { text: "Add Animal", icon: <AddIcon />, path: "/add-animal" },
-    { text: "Adoption Requests", icon: <MailIcon />, path: "/requests" }
-  ];
+const menuItems = [
+  { text: "Home", icon: <HomeIcon />, path: "/" },
+  { text: "My Animals", icon: <PetsIcon />, path: "/my-animals" },
+  { text: "Add Animal", icon: <AddIcon />, path: "/add-animal" },
+  { text: "Adoption Requests", icon: <MailIcon />, path: "/requests" },
+
+  ...(user.role === "admin"
+    ? [
+        {
+          text: "Admin Dashboard",
+          icon: <AdminPanelSettingsIcon />,
+          path: "/admin"
+        }
+      ]
+    : [])
+];
+
 
   const handleNavigate = (path) => {
     navigate(path);
