@@ -7,9 +7,13 @@ import java.util.Optional;
 
 public interface AnimalService {
     List<AnimalDto> findAll();
-    List<AnimalDto> search(String q, String category);
     Optional<AnimalDto> findById(Long id);
-    AnimalDto create(AnimalDto dto);
-    Optional<AnimalDto> update(Long id, AnimalDto dto);
-    boolean delete(Long id);
+    List<AnimalDto> search(String q, String category);
+
+    AnimalDto createForUser(String username, AnimalDto dto);
+    Optional<AnimalDto> updateForUser(String username, Long id, AnimalDto dto);
+
+    boolean deleteForUser(String username, Long id);
+
+    List<AnimalDto> findMine(String username);
 }
