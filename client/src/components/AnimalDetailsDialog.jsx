@@ -7,7 +7,7 @@ export default function AnimalDetailsDialog({ open, onClose, children }) {
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth={false} // ✅ מאפשר שליטה מלאה על רוחב
+      maxWidth={false}
       PaperProps={{
         sx: {
           width: "min(1200px, calc(100vw - 64px))",

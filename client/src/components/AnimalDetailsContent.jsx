@@ -14,7 +14,12 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import HourglassTopIcon from "@mui/icons-material/HourglassTop";
 import CancelIcon from "@mui/icons-material/Cancel";
 
-export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = false }) {
+export default function AnimalDetailsContent({
+  animal,
+  onAdopt,
+  hideAdopt = false,
+  currentUserId
+}) {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
 
@@ -23,11 +28,12 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
   const raw = animal?.image || "";
   const API_BASE = process.env.REACT_APP_API_URL;
 
-  const imageSrc = raw
-    ? raw.startsWith("data:") || raw.startsWith("http")
+  const imageSrc =
+    !raw || String(raw).trim() === ""
+      ? "/no-image.png"
+      : raw.startsWith("data:") || raw.startsWith("http")
       ? raw
-      : `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`
-    : "/placeholder-animal.png";
+      : `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`;
 
   const categoryLabel =
     typeof animal.category === "object"
@@ -41,7 +47,19 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
 
   const status = (animal.status || "AVAILABLE").toString().toUpperCase();
 
-  /* ---------- status styles ---------- */
+  const isInactive = status === "INACTIVE";
+
+  const ownerUserId =
+    animal?.ownerUserId ??
+    animal?.userId ??
+    animal?.owner?.id ??
+    null;
+
+  const isOwnListing =
+    currentUserId != null &&
+    ownerUserId != null &&
+    String(currentUserId) === String(ownerUserId);
+
   const getStatusMeta = (s) => {
     switch (s) {
       case "AVAILABLE":
@@ -49,7 +67,7 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
           label: "AVAILABLE",
           icon: <CheckCircleIcon fontSize="small" />,
           bg: alpha(theme.palette.success.main, isDark ? 0.18 : 0.14),
-          border: alpha(theme.palette.success.main, isDark ? 0.35 : 0.30),
+          border: alpha(theme.palette.success.main, isDark ? 0.35 : 0.3),
           text: isDark ? theme.palette.success.light : theme.palette.success.dark
         };
       case "PENDING":
@@ -57,7 +75,7 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
           label: "PENDING",
           icon: <HourglassTopIcon fontSize="small" />,
           bg: alpha(theme.palette.warning.main, isDark ? 0.18 : 0.14),
-          border: alpha(theme.palette.warning.main, isDark ? 0.35 : 0.30),
+          border: alpha(theme.palette.warning.main, isDark ? 0.35 : 0.3),
           text: isDark ? theme.palette.warning.light : theme.palette.warning.dark
         };
       case "ADOPTED":
@@ -65,14 +83,14 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
           label: "ADOPTED",
           icon: <CancelIcon fontSize="small" />,
           bg: alpha(theme.palette.error.main, isDark ? 0.18 : 0.14),
-          border: alpha(theme.palette.error.main, isDark ? 0.35 : 0.30),
+          border: alpha(theme.palette.error.main, isDark ? 0.35 : 0.3),
           text: isDark ? theme.palette.error.light : theme.palette.error.dark
         };
       default:
         return {
           label: s || "UNKNOWN",
           icon: <InfoOutlinedIcon fontSize="small" />,
-          bg: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.06),
+          bg: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
           border: alpha(theme.palette.text.primary, isDark ? 0.18 : 0.14),
           text: theme.palette.text.primary
         };
@@ -81,7 +99,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
 
   const statusMeta = getStatusMeta(status);
 
-  /* ---------- section title style (accent) ---------- */
   const sectionTitleSx = {
     fontWeight: 900,
     letterSpacing: "0.6px",
@@ -101,12 +118,12 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
 
   const softBox = {
     bgcolor: alpha(theme.palette.text.primary, isDark ? 0.05 : 0.04),
-    border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.10 : 0.10)}`,
+    border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.1 : 0.1)}`,
     borderRadius: 2.2
   };
 
   const chipBase = {
-    bgcolor: alpha(theme.palette.text.primary, isDark ? 0.10 : 0.06),
+    bgcolor: alpha(theme.palette.text.primary, isDark ? 0.1 : 0.06),
     color: "text.primary",
     border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.14 : 0.12)}`,
     fontWeight: 800
@@ -128,7 +145,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
         alignItems: "start"
       }}
     >
-      {/* IMAGE */}
       <Box
         sx={{
           width: "100%",
@@ -159,9 +175,7 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
         </Box>
       </Box>
 
-      {/* CONTENT */}
       <Box>
-        {/* HEADER */}
         <Box
           sx={{
             display: "flex",
@@ -177,7 +191,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
             </Typography>
 
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1.5 }}>
-              {/* Status chip */}
               <Chip
                 size="small"
                 icon={statusMeta.icon}
@@ -198,7 +211,7 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
             </Box>
           </Box>
 
-          {!hideAdopt && (
+          {!hideAdopt && !isOwnListing && (
             <Button
               variant="contained"
               color="success"
@@ -216,11 +229,23 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
               Adopt Now
             </Button>
           )}
+
+          {!hideAdopt && isOwnListing && !isInactive && (
+            <Chip
+              label="Your listing"
+              sx={{
+                fontWeight: 900,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.info.main, isDark ? 0.18 : 0.12),
+                color: isDark ? theme.palette.info.light : theme.palette.info.dark,
+                border: `1px solid ${alpha(theme.palette.info.main, isDark ? 0.35 : 0.25)}`
+              }}
+            />
+          )}
         </Box>
 
         <Divider sx={{ my: 3, opacity: isDark ? 0.18 : 0.35 }} />
 
-        {/* INFO GRID */}
         <Box
           sx={{
             display: "grid",
@@ -228,7 +253,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
             gap: 2.5
           }}
         >
-          {/* LOCATION */}
           <Box sx={{ p: 2.25, ...softBox }}>
             <Typography sx={sectionTitleSx}>
               <LocationOnIcon fontSize="small" sx={iconTint("info")} />
@@ -243,7 +267,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
             </Box>
           </Box>
 
-          {/* OWNER */}
           <Box sx={{ p: 2.25, ...softBox }}>
             <Typography sx={sectionTitleSx}>
               <PersonIcon fontSize="small" sx={iconTint("primary")} />
@@ -267,7 +290,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
             </Box>
           </Box>
 
-          {/* ATTRIBUTES */}
           <Box sx={{ p: 2.25, ...softBox }}>
             <Typography sx={sectionTitleSx}>
               <InfoOutlinedIcon fontSize="small" sx={iconTint("secondary")} />
@@ -305,7 +327,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
                 <Typography sx={{ fontWeight: 800 }}>{categoryLabel}</Typography>
               </Box>
 
-              {/* Status line (colored) */}
               <Box
                 sx={{
                   display: "flex",
@@ -316,9 +337,7 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
                 }}
               >
                 <InfoOutlinedIcon fontSize="small" sx={{ color: statusMeta.text }} />
-                <Typography sx={{ fontWeight: 900 }}>
-                  Status:
-                </Typography>
+                <Typography sx={{ fontWeight: 900 }}>Status:</Typography>
 
                 <Chip
                   size="small"
@@ -337,7 +356,6 @@ export default function AnimalDetailsContent({ animal, onAdopt, hideAdopt = fals
             </Box>
           </Box>
 
-          {/* DESCRIPTION */}
           <Box
             sx={{
               gridColumn: { xs: "1 / -1" },

@@ -65,6 +65,7 @@ export default function LocationNominatimAutocomplete({ value, onChange, placeho
   return (
     <Box sx={{ position: "relative" }}>
       <TextField
+        required
         label="Location"
         value={input}
         onChange={(e) => {

@@ -4,7 +4,6 @@ import { AuthApi } from "../api/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem("auth");
@@ -19,8 +18,11 @@ export function AuthProvider({ children }) {
 
     const authData = {
       accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      id: data.userId,
+      userId: data.userId,
       username: data.username,
-      roles: data.roles
+      roles: data.roles || []
     };
 
     localStorage.setItem("auth", JSON.stringify(authData));

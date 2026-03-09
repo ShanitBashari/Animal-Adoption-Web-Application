@@ -123,17 +123,55 @@ export const AnimalsApi = {
   delete(id) {
     return request(`/api/animals/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
+
+  activate(id) {
+    return request(`/api/animals/${encodeURIComponent(id)}/activate`, {
+      method: "PUT",
+    });
+  },
+
 };
 
 export const RequestsApi = {
-  create(dto) {
-    return request(`/api/requests`, { method: "POST", body: dto });
+  async list(params = {}) {
+    const query = new URLSearchParams();
+
+    if (params.userId != null) query.append("userId", params.userId);
+    if (params.animalId != null) query.append("animalId", params.animalId);
+
+    const qs = query.toString();
+    return request(`/api/requests${qs ? `?${qs}` : ""}`);
   },
 
-  get(id) {
-    return request(`/api/requests/${encodeURIComponent(id)}`, { method: "GET" });
+  async getById(id) {
+    return request(`/api/requests/${id}`);
   },
 
+  async create(payload) {
+    return request(`/api/requests`, {
+      method: "POST",
+      body: payload,
+    });
+  },
+
+  async cancel(id) {
+    return request(`/api/requests/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  async approve(id) {
+    return request(`/api/requests/${id}/approve`, {
+      method: "POST",
+    });
+  },
+
+  async reject(id, reason) {
+    return request(`/api/requests/${id}/reject`, {
+      method: "POST",
+      body: { reason },
+    });
+  },
 };
 
 export const CategoriesApi = {
@@ -170,3 +208,48 @@ export const AuthApi = {
     return request(`/api/auth/login`, { method: "POST", body: payload, auth: false });
   },
 };
+
+export const AdminApi = {
+  users() {
+    return request(`/api/admin/users`, { method: "GET" });
+  },
+
+  animals() {
+    return request(`/api/admin/animals`, { method: "GET" });
+  },
+
+  requests() {
+    return request(`/api/requests`, { method: "GET" });
+  },
+
+  deactivateUser(id) {
+    return request(`/api/admin/users/${encodeURIComponent(id)}/deactivate`, {
+      method: "PATCH"
+    });
+  },
+
+  activateUser(id) {
+    return request(`/api/admin/users/${encodeURIComponent(id)}/activate`, {
+      method: "PATCH"
+    });
+  },
+
+  removeAnimal(id) {
+    return request(`/api/admin/animals/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+  },
+
+  approveAnimal: (animalId) =>
+    request(`/api/admin/animals/${animalId}/approve`, {
+      method: "PUT"
+  }),
+
+  rejectAnimal: (animalId, reason = "") =>
+    request(`/api/admin/animals/${animalId}/reject`, {
+      method: "PUT",
+      body: JSON.stringify({ reason })
+  })
+};
+
+

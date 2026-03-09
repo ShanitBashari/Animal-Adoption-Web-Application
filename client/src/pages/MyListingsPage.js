@@ -1,10 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { Box, Grid, Typography, IconButton, Container, CircularProgress } from "@mui/material";
+import {
+  Box,
+  Grid,
+  Typography,
+  IconButton,
+  Container,
+  CircularProgress,
+  Button,
+  Chip
+} from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PetsIcon from "@mui/icons-material/Pets";
+import RestoreIcon from "@mui/icons-material/Restore";
+import PauseCircleOutlineIcon from "@mui/icons-material/PauseCircleOutline";
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 
@@ -18,9 +29,8 @@ import AnimalCard from "../components/AnimalCard";
 import { AnimalsApi } from "../api/api";
 import { useAuth } from "../auth/AuthContext";
 
-
 function MyListingsPage() {
- const navigate = useNavigate();
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const [myAnimals, setMyAnimals] = useState([]);
@@ -42,8 +52,10 @@ function MyListingsPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // activate
+  const [activatingId, setActivatingId] = useState(null);
+
   useEffect(() => {
-    // must be logged in (because /mine requires JWT)
     if (!user?.accessToken) {
       navigate("/login");
       return;
@@ -60,14 +72,18 @@ function MyListingsPage() {
       } catch (err) {
         console.error("Failed to load mine:", err);
         const msg = err?.body?.message || err?.body || err?.message || "Failed to load";
-        if (mounted) setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
+        if (mounted) {
+          setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
+        }
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
     loadMine();
-    return () => (mounted = false);
+    return () => {
+      mounted = false;
+    };
   }, [user?.accessToken, navigate]);
 
   async function handleDeleteConfirmed() {
@@ -76,7 +92,10 @@ function MyListingsPage() {
     try {
       setDeleteLoading(true);
       await AnimalsApi.delete(pendingDelete.id);
-      setMyAnimals((prev) => prev.filter((a) => a.id !== pendingDelete.id));
+
+      const fresh = await AnimalsApi.mine();
+      setMyAnimals(Array.isArray(fresh) ? fresh : []);
+
       setOpenDelete(false);
       setPendingDelete(null);
     } catch (err) {
@@ -85,6 +104,76 @@ function MyListingsPage() {
       alert(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  async function handleActivate(animalId) {
+    try {
+      setActivatingId(animalId);
+      const updated = await AnimalsApi.activate(animalId);
+
+      setMyAnimals((prev) =>
+        prev.map((a) => (a.id === updated.id ? updated : a))
+      );
+    } catch (err) {
+      console.error("Activate failed:", err);
+      const msg = err?.body?.message || err?.body || err?.message || "Activate failed";
+      alert(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setActivatingId(null);
+    }
+  }
+
+  function getStatusMeta(status) {
+    const s = String(status || "").toUpperCase();
+
+    switch (s) {
+      case "PENDING":
+        return {
+          label: "PENDING",
+          sx: {
+            bgcolor: "#fff3e0",
+            color: "#ef6c00",
+            border: "1px solid #ffb74d"
+          }
+        };
+      case "REJECTED":
+        return {
+          label: "REJECTED",
+          sx: {
+            bgcolor: "#ffebee",
+            color: "#c62828",
+            border: "1px solid #ef9a9a"
+          }
+        };
+      case "INACTIVE":
+        return {
+          label: "INACTIVE",
+          sx: {
+            bgcolor: "#eceff1",
+            color: "#455a64",
+            border: "1px solid #b0bec5"
+          }
+        };
+      case "AVAILABLE":
+      case "APPROVED":
+        return {
+          label: "ACTIVE",
+          sx: {
+            bgcolor: "#e8f5e9",
+            color: "#2e7d32",
+            border: "1px solid #81c784"
+          }
+        };
+      default:
+        return {
+          label: s || "UNKNOWN",
+          sx: {
+            bgcolor: "#f5f5f5",
+            color: "#616161",
+            border: "1px solid #e0e0e0"
+          }
+        };
     }
   }
 
@@ -131,7 +220,8 @@ function MyListingsPage() {
       </Box>
 
       <Container maxWidth="lg" sx={{ mt: 6 }}>
-        <Box sx={{ textAlign: "center", mb: 4, px: 2 }}>
+        {/* Header */}
+        <Box sx={{ textAlign: "center", mb: 4 }}>
           <Typography
             variant="h3"
             sx={(theme) => {
@@ -139,8 +229,6 @@ function MyListingsPage() {
               const accent = isDark ? theme.palette.primary.light : theme.palette.primary.main;
 
               return {
-                textAlign: "center",
-                mb: 1,
                 fontWeight: 900,
                 letterSpacing: "0.4px",
                 color: "transparent",
@@ -159,15 +247,13 @@ function MyListingsPage() {
           </Typography>
 
           <Typography
-            variant="body1"
             sx={(theme) => ({
-              textAlign: "center",
-              mb: 1,
-              fontWeight: 800,
-              color: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.86 : 0.78)
+              mt: 1,
+              fontWeight: 700,
+              color: alpha(theme.palette.text.primary, 0.75)
             })}
           >
-            Manage the animals you’ve listed for adoption — view, edit, or delete your posts.
+            Manage the animals you’ve listed for adoption — view, edit, or remove your posts.
           </Typography>
         </Box>
 
@@ -176,120 +262,139 @@ function MyListingsPage() {
             <CircularProgress />
           </Box>
         ) : error ? (
-          <Typography color="error" sx={{ textAlign: "center", mt: 4, fontWeight: 800 }}>
+          <Typography color="error" sx={{ textAlign: "center", mt: 4 }}>
             {error}
           </Typography>
         ) : myAnimals.length === 0 ? (
-          <Typography
-            variant="body1"
-            sx={(theme) => {
-              const isDark = theme.palette.mode === "dark";
-
-              return {
-                textAlign: "center",
-                mt: 2,
-                fontWeight: 900,
-                color: isDark ? theme.palette.primary.light : theme.palette.primary.dark,
-                opacity: 0.98
-              };
-            }}
-          >
+          <Typography sx={{ textAlign: "center", mt: 4 }}>
             You don’t have any listings yet.
           </Typography>
         ) : (
-          <Grid container spacing={1.25} justifyContent="center">
-            {myAnimals.map((animal) => (
-              <Grid item key={animal.id} xs={12} sm={6} md={4} lg={2}>
-                <AnimalCard
-                  animal={animal}
-                  onClick={(a) => {
-                    setSelectedAnimal(a);
-                    setOpenDetails(true);
-                  }}
-                />
+          <Grid container spacing={2} justifyContent="center">
+            {myAnimals.map((animal) => {
+              const statusUpper = String(animal.status || "").toUpperCase();
+              const isInactive = statusUpper === "INACTIVE";
+              const isPending = statusUpper === "PENDING";
+              const isRejected = statusUpper === "REJECTED";
+              const isActivating = activatingId === animal.id;
+              const statusMeta = getStatusMeta(statusUpper);
 
-                {/* actions */}
-                <Box
-                  sx={(theme) => ({
-                    width: 250,
-                    mt: 1.2,
-                    display: "flex",
-                    justifyContent: "center",
-                    gap: 1.5
-                  })}
-                >
-                  {/* View */}
-                  <IconButton
-                    aria-label="view"
-                    onClick={() => {
-                      setSelectedAnimal(animal);
-                      setOpenDetails(true);
-                    }}
-                    sx={(theme) => {
-                      const isDark = theme.palette.mode === "dark";
-                      const c = isDark ? theme.palette.primary.light : theme.palette.primary.main;
-                      return {
-                        bgcolor: alpha(c, isDark ? 0.10 : 0.08),
-                        color: c,
-                        border: `1px solid ${alpha(c, isDark ? 0.22 : 0.18)}`,
-                        "&:hover": { bgcolor: alpha(c, isDark ? 0.18 : 0.14) }
-                      };
+              return (
+                <Grid item key={animal.id} xs={12} sm={6} md={4} lg={3}>
+                  <Box sx={{ position: "relative", display: "flex", justifyContent: "center" }}>
+                    
+                    {/* Animal card */}
+                    <AnimalCard
+                      animal={animal}
+                      onClick={(a) => {
+                        setSelectedAnimal(a);
+                        setOpenDetails(true);
+                      }}
+                    />
+                    <Chip
+                      label={statusMeta.label}
+                      size="small"
+                      icon={isInactive ? <PauseCircleOutlineIcon /> : undefined}
+                      sx={{
+                        position: "absolute",
+                        top: 10,
+                        left: 10,
+                        fontWeight: 800,
+                        ...statusMeta.sx
+                      }}
+                    />
+                  </Box>
+
+                  {/* Actions */}
+                  <Box
+                    sx={{
+                      mt: 1.2,
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: 1
                     }}
                   >
-                    <VisibilityIcon />
-                  </IconButton>
+                    <IconButton
+                      onClick={() => {
+                        setSelectedAnimal(animal);
+                        setOpenDetails(true);
+                      }}
+                      sx={{
+                        bgcolor: "#e3f2fd",
+                        border: "1px solid #90caf9"
+                      }}
+                    >
+                      <VisibilityIcon />
+                    </IconButton>
 
-                  {/* Edit */}
-                  <IconButton
-                    aria-label="edit"
-                    onClick={() => {
-                      setEditingAnimal(animal);
-                      setOpenEdit(true);
-                    }}
-                    sx={(theme) => {
-                      const isDark = theme.palette.mode === "dark";
-                      const c = theme.palette.warning.main;
-                      return {
-                        bgcolor: alpha(c, isDark ? 0.12 : 0.10),
-                        color: isDark ? theme.palette.warning.light : theme.palette.warning.dark,
-                        border: `1px solid ${alpha(c, isDark ? 0.24 : 0.20)}`,
-                        "&:hover": { bgcolor: alpha(c, isDark ? 0.20 : 0.16) }
-                      };
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
+                    {isInactive ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RestoreIcon />}
+                        disabled={isActivating}
+                        onClick={() => handleActivate(animal.id)}
+                        sx={{
+                          borderRadius: 999,
+                          textTransform: "none",
+                          fontWeight: 800
+                        }}
+                      >
+                        {isActivating ? "Activating..." : "Activate"}
+                      </Button>
+                    ) : isPending ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled
+                        sx={{
+                          borderRadius: 999,
+                          textTransform: "none",
+                          fontWeight: 800
+                        }}
+                      >
+                        Waiting for approval
+                      </Button>
+                    ) : (
+                      <>
+                        <IconButton
+                          onClick={() => {
+                            setEditingAnimal(animal);
+                            setOpenEdit(true);
+                          }}
+                          sx={{
+                            bgcolor: "#fff3e0",
+                            border: "1px solid #ffcc80"
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
 
-                  {/* Delete */}
-                  <IconButton
-                    aria-label="delete"
-                    onClick={() => {
-                      setPendingDelete(animal);
-                      setOpenDelete(true);
-                    }}
-                    sx={(theme) => {
-                      const isDark = theme.palette.mode === "dark";
-                      const c = theme.palette.error.main;
-                      return {
-                        bgcolor: alpha(c, isDark ? 0.12 : 0.10),
-                        color: isDark ? theme.palette.error.light : theme.palette.error.dark,
-                        border: `1px solid ${alpha(c, isDark ? 0.24 : 0.20)}`,
-                        "&:hover": { bgcolor: alpha(c, isDark ? 0.20 : 0.16) }
-                      };
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Box>
-              </Grid>
-            ))}
+                        <IconButton
+                          onClick={() => {
+                            setPendingDelete(animal);
+                            setOpenDelete(true);
+                          }}
+                          sx={{
+                            bgcolor: "#ffebee",
+                            border: "1px solid #ef9a9a"
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </>
+                    )}
+                  </Box>
+                </Grid>
+              );
+            })}
           </Grid>
         )}
       </Container>
 
-      {/* Details (reuse Home) — no adopt */}
+      {/* Details */}
       <AnimalDetailsDialog open={openDetails} onClose={() => setOpenDetails(false)}>
-        <AnimalDetailsContent animal={selectedAnimal} onAdopt={() => {}} hideAdopt />
+        <AnimalDetailsContent animal={selectedAnimal} hideAdopt />
       </AnimalDetailsDialog>
 
       {/* Edit */}
@@ -316,7 +421,9 @@ function MyListingsPage() {
             setOpenEdit(false);
             setEditingAnimal(null);
             if (updated)
-              setMyAnimals((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+              setMyAnimals((prev) =>
+                prev.map((a) => (a.id === updated.id ? updated : a))
+              );
           }}
         />
       </AnimalFormDialog>
@@ -324,9 +431,9 @@ function MyListingsPage() {
       {/* Delete confirm */}
       <ConfirmDialog
         open={openDelete}
-        title="Delete listing?"
-        description={`Are you sure you want to remove "${pendingDelete?.name} from adoption"?`}
-        confirmText={deleteLoading ? "Deleting..." : "Delete"}
+        title="Remove listing?"
+        description={`Are you sure you want to remove "${pendingDelete?.name}" from adoption?`}
+        confirmText={deleteLoading ? "Removing..." : "Remove"}
         cancelText="Cancel"
         onClose={() => (deleteLoading ? null : setOpenDelete(false))}
         onConfirm={handleDeleteConfirmed}

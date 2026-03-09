@@ -63,15 +63,15 @@ export default function AddAnimalForm({
 
   const empty = {
     name: "",
-    category: "", // ✅ string name (not id)
+    category: "",
     gender: "",
     size: "",
-    location: "", // ✅ NOT required
+    location: "",
     description: "",
     ownerName: "",
     ownerPhone: "",
-    age: "", // number | "" | null
-    status: "AVAILABLE",
+    age: "",
+    status: "PENDING",
     image: null
   };
 
@@ -82,7 +82,6 @@ export default function AddAnimalForm({
 
   const [preview, setPreview] = useState(null);
 
-  // ✅ snacks (no alerts)
   const [snack, setSnack] = useState({
     open: false,
     severity: "success",
@@ -99,8 +98,6 @@ export default function AddAnimalForm({
 
   useEffect(() => {
     setForm({ ...empty, ...(initialValues || {}) });
-    // preview will be set only on file selection
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues]);
 
   useEffect(() => {
@@ -135,20 +132,21 @@ export default function AddAnimalForm({
     };
   }, [preview]);
 
-  // ✅ age validation: allow "" (not provided) or number 0..50 or null (unknown)
   const isAgeValid =
     form.age === "" ||
     form.age === null ||
     (Number.isInteger(form.age) && form.age >= 0 && form.age <= 50);
 
-  // ✅ Location is NOT required
   const isFormValid =
     String(form.name || "").trim().length > 0 &&
     String(form.category || "").trim().length > 0 &&
     String(form.gender || "").trim().length > 0 &&
     String(form.size || "").trim().length > 0 &&
+    String(form.location || "").trim().length > 0 &&
     String(form.ownerName || "").trim().length > 0 &&
     String(form.ownerPhone || "").trim().length > 0 &&
+    String(form.age || "").trim().length > 0 &&
+
     isAgeValid;
 
   const showSnack = (severity, message) =>
@@ -171,15 +169,14 @@ export default function AddAnimalForm({
     setExternalLoading?.(true);
 
     try {
-      // ✅ Backend expects category as NAME (string)
       const bodyObj = {
         name: String(form.name || "").trim(),
         category: String(form.category || "").trim(),
         gender: String(form.gender || "").trim(),
         size: String(form.size || "").trim(),
-        age: form.age === "" ? null : form.age, // "" -> null
-        status: form.status || "AVAILABLE",
-        location: String(form.location || "").trim(), // optional
+        age: form.age === "" ? null : form.age,
+        status: isEdit ? (form.status || "PENDING") : "PENDING",
+        location: String(form.location || "").trim(),
         description: String(form.description || "").trim(),
         ownerName: String(form.ownerName || "").trim(),
         ownerPhone: String(form.ownerPhone || "").trim()
@@ -187,20 +184,11 @@ export default function AddAnimalForm({
 
       let saved;
 
-      // ✅ if there's a file → multipart
       if (form.image) {
         const fd = new FormData();
         fd.append("body", JSON.stringify(bodyObj));
         fd.append("image", form.image);
 
-        // IMPORTANT: your api.js currently has updateMultipart(formData) without id.
-        // We'll call PUT /api/animals/{id} by using update() when no image,
-        // and by using updateMultipart(id, fd) if you added that method.
-        //
-        // If you DID NOT update AnimalsApi.updateMultipart yet, do this:
-        // saved = await AnimalsApi.update(entityId, bodyObj) // (no image)
-        //
-        // ✅ Here we assume you have: updateMultipart(id, formData)
         saved = isEdit
           ? await AnimalsApi.updateMultipart(entityId, fd)
           : await AnimalsApi.createMultipart(fd);
@@ -210,7 +198,7 @@ export default function AddAnimalForm({
           : await AnimalsApi.create(bodyObj);
       }
 
-      showSnack("success", isEdit ? "Animal updated successfully!" : "Animal added successfully!");
+      showSnack("success", isEdit ? "Animal updated successfully!" : "Animal submitted successfully and is waiting for admin approval.");
       onSuccess?.(saved);
     } catch (err) {
       console.error("Create/Update failed:", err);
@@ -238,7 +226,6 @@ export default function AddAnimalForm({
         border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.10 : 0.08)}`
       }}
     >
-      {/* ✅ REAL FORM with id so dialog button can submit it */}
       <Box
         component="form"
         id="animal-form"
@@ -328,6 +315,7 @@ export default function AddAnimalForm({
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <TextField
             type="number"
+            required
             label="Age"
             value={form.age === null ? "" : form.age}
             onChange={(e) => {
@@ -426,7 +414,6 @@ export default function AddAnimalForm({
           />
         </Box>
 
-        {/* optional: allow pressing Enter to submit */}
         <Box sx={{ display: "none" }}>
           <Button type="submit" />
         </Box>

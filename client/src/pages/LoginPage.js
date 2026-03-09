@@ -36,8 +36,6 @@ function LoginPage() {
   };
 
   const toFriendlyMessage = (err) => {
-    // מה שבא מהשרת (GlobalExceptionHandler) יגיע ב-err.message
-    // אבל נעשה fallback לפי status אם צריך
     const status = err?.status;
 
     if (status === 401) return "Invalid username or password";
@@ -55,14 +53,9 @@ function LoginPage() {
     setServerError("");
 
     try {
-      const res = await login(values.username.trim(), values.password);
-
-      const roles = res?.roles || [];
-      const isAdmin = roles.includes("ADMIN");
-
-      navigate(isAdmin ? "/admin" : "/", { replace: true });
+      await login(values.username.trim(), values.password);
+      navigate( "/", { replace: true });
     } catch (err) {
-      // 👈 לא עושים navigate. נשארים בדף ומציגים הודעה.
       setServerError(toFriendlyMessage(err));
     } finally {
       setSubmitting(false);
