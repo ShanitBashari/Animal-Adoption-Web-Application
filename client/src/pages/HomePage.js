@@ -1,37 +1,62 @@
-// src/pages/HomePage.js
-import { useState, useEffect } from "react";
+import { React, useState, useEffect, useRef } from "react";
 import {
   Box,
   TextField,
   Grid,
   Typography,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
+  CircularProgress,
+  InputAdornment
 } from "@mui/material";
+
+import FilterDialog from "../components/FilterDialog";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+
 import AnimalCard from "../components/AnimalCard";
-import { AnimalsApi } from "../api/api"; // <-- ודאי שהנתיב נכון
+import AnimalDetailsDialog from "../components/AnimalDetailsDialog";
+import AnimalDetailsContent from "../components/AnimalDetailsContent";
+import { AnimalsApi, CategoriesApi } from "../api/api";
+
+import AnimalFormDialog from "../components/AnimalFormDialog";
+import AddAnimalForm from "../components/AddAnimalForm";
+import { useAuth } from "../auth/AuthContext";
 
 function HomePage() {
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const [age, setAge] = useState("");
-  const [openFilter, setOpenFilter] = useState(false);
+
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    category: "",
+    age: "",
+    location: "",
+    size: "",
+    status: ""
+  });
+
+  const [openAdd, setOpenAdd] = useState(false);
 
   const [animals, setAnimals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [categories, setCategories] = useState([]);
+  const [catsLoading, setCatsLoading] = useState(true);
+
+  const [openDetails, setOpenDetails] = useState(false);
+  const [selectedAnimal, setSelectedAnimal] = useState(null);
+
+  const { user } = useAuth();
+  const username = user?.username;
+  const isLoggedIn = !!user?.accessToken;
+
+  const addSubmitRef = useRef(null);
+  const [addLoading, setAddLoading] = useState(false);
+
+  // load animals
   useEffect(() => {
-    const controller = new AbortController();
     async function load() {
       try {
         setLoading(true);
@@ -40,38 +65,124 @@ function HomePage() {
         setAnimals(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load animals:", err);
-        // אם err.body קיים נציג אותו, אחרת err.message
-        const message = err?.body || err?.message || "Unknown error";
+        const message = err?.body?.message || err?.body || err?.message || "Unknown error";
         setError(typeof message === "string" ? message : JSON.stringify(message).slice(0, 200));
       } finally {
         setLoading(false);
       }
     }
     load();
-    return () => controller.abort();
   }, []);
 
+  // load categories
+  useEffect(() => {
+    let mounted = true;
+    async function loadCategories() {
+      setCatsLoading(true);
+      try {
+        const data = await CategoriesApi.list();
+        const arr = Array.isArray(data) ? data : [];
+        arr.sort((a, b) => {
+          const an = (a?.name ?? a).toString();
+          const bn = (b?.name ?? b).toString();
+          return an.localeCompare(bn, "he", { sensitivity: "base" });
+        });
+        if (mounted) setCategories(arr);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      } finally {
+        if (mounted) setCatsLoading(false);
+      }
+    }
+    loadCategories();
+    return () => (mounted = false);
+  }, []);
+
+  function categoryNameFromAnimal(animal) {
+    if (!animal) return "";
+    const c = animal.category;
+    if (!c && (animal.categoryName || animal.category_name)) return animal.categoryName || animal.category_name;
+    if (typeof c === "string") return c;
+    if (typeof c === "number") return "";
+    if (typeof c === "object") return c.name || c.label || "";
+    return "";
+  }
+
+  // client-side filtering (search + dialog filters)
   const filteredAnimals = animals.filter((animal) => {
-    const matchesSearch =
-      (animal.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (animal.location || "").toLowerCase().includes(search.toLowerCase());
+    const name = (animal.name || "").toString().toLowerCase();
+    const loc = (animal.location || "").toString().toLowerCase();
 
-    const matchesCategory = category === "" || animal.category === category;
+    // search by name or location
+    const query = search.toLowerCase().trim();
+    const matchesSearch = !query || name.includes(query) || loc.includes(query);
 
+    // category filter
+    const selectedCategory = String(filters.category || "");
+    const animalCategoryName = String(categoryNameFromAnimal(animal) || "");
+    const animalCategoryId =
+      animal.category && typeof animal.category === "object" && animal.category.id
+        ? String(animal.category.id)
+        : animal.category
+        ? String(animal.category)
+        : "";
+
+    const matchesCategory =
+      !selectedCategory ||
+      animalCategoryName === selectedCategory ||
+      animalCategoryId === selectedCategory;
+
+    // age filter (your dialog values: 0-2 / 3-6 / 7+)
+    const ageNum = typeof animal.age === "number" ? animal.age : Number(animal.age) || 0;
+    const a = filters.age;
     const matchesAge =
-      age === "" ||
-      (age === "young" && (animal.age ?? 0) <= 2) ||
-      (age === "adult" && (animal.age ?? 0) > 2);
+      !a ||
+      (a === "0-2" && ageNum <= 2) ||
+      (a === "3-6" && ageNum >= 3 && ageNum <= 6) ||
+      (a === "7+" && ageNum >= 7);
 
-    return matchesSearch && matchesCategory && matchesAge;
+    // location contains
+    const lf = (filters.location || "").toLowerCase().trim();
+    const matchesLocation = !lf || loc.includes(lf);
+
+    // size
+    const matchesSize =
+      !filters.size || String(animal.size || "") === String(filters.size);
+
+    // status
+    const matchesStatus =
+      !filters.status || String(animal.status || "") === String(filters.status);
+
+    return matchesSearch && matchesCategory && matchesAge && matchesLocation && matchesSize && matchesStatus;
   });
 
   return (
     <Box sx={{ p: 4 }}>
-      {/* App Description */}
-      <Box sx={{ textAlign: "center", maxWidth: 800, mx: "auto", mb: 5 }}>
-        <Typography variant="h4" gutterBottom>
-          Welcome to Pet Adoption!
+      {/* Add Animal (only for logged in users) */}
+      {isLoggedIn && (
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenAdd(true)}
+          sx={{
+            position: "fixed",
+            top: 90,
+            right: 24,
+            zIndex: 2000,
+            height: 48,
+            borderRadius: 999,
+            px: 2.5,
+            boxShadow: 10
+          }}
+        >
+          Add Animal
+        </Button>
+      )}
+
+      {/* Header */}
+      <Box sx={{ textAlign: "center", maxWidth: 800, mx: "auto", mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>
+          {username ? `Welcome to Pet Adoption, ${username} 🐾` : "Welcome to Pet Adoption 🐾"}
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Here you can find animals that looking for a new home and start the adoption process
@@ -79,70 +190,105 @@ function HomePage() {
       </Box>
 
       {/* Search + Filter */}
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mb: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mb: 3 }}>
         <TextField
-          sx={{ width: "60%" }}
-          placeholder="Search for an animal..."
+          placeholder="Search by name or location..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={loading}
+          sx={{
+            width: { xs: "95%", sm: "70%", md: "55%" },
+            "& .MuiInputBase-root": { height: 54, fontSize: 16, borderRadius: 3 }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            )
+          }}
         />
-        <IconButton color="primary" onClick={() => setOpenFilter(true)}>
+
+        <IconButton color="primary" onClick={() => setFilterOpen(true)} disabled={loading}>
           <FilterListIcon />
         </IconButton>
       </Box>
 
       {/* Filter Dialog */}
-      <Dialog open={openFilter} onClose={() => setOpenFilter(false)}>
-        <DialogTitle sx={{ fontWeight: "bold" }}>Filter Animals</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1, minWidth: 320 }}>
-          <FormControl fullWidth>
-            <InputLabel>Category</InputLabel>
-            <Select value={category} label="Category" onChange={(e) => setCategory(e.target.value)}>
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Dog">Dog</MenuItem>
-              <MenuItem value="Cat">Cat</MenuItem>
-              <MenuItem value="Wolf">Wolf</MenuItem>
-            </Select>
-          </FormControl>
+      <FilterDialog
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        filters={filters}
+        setFilters={setFilters}
+        categories={categories}
+        onApply={() => setFilterOpen(false)} // no fetch needed (client-side filter)
+        onClear={() =>
+          setFilters({
+            category: "",
+            age: "",
+            location: "",
+            size: "",
+            status: ""
+          })
+        }
+      />
 
-          <FormControl fullWidth>
-            <InputLabel>Age</InputLabel>
-            <Select value={age} label="Age" onChange={(e) => setAge(e.target.value)}>
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="young">Young (≤2)</MenuItem>
-              <MenuItem value="adult">Adult (3+)</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
+      <AnimalFormDialog
+        open={openAdd}
+        onClose={() => setOpenAdd(false)}
+        title="Add New Animal"
+        primaryText="Add Animal"
+        secondaryText="Cancel"
+        formId="animal-form"
+        onSecondary={() => setOpenAdd(false)}
+        onPrimary={() => addSubmitRef.current?.()}
+        loading={addLoading}
+      >
+        <AddAnimalForm
+          mode="add"
+          registerSubmit={(fn) => (addSubmitRef.current = fn)}
+          setExternalLoading={setAddLoading}
+          onSuccess={(created) => {
+            setOpenAdd(false);
+            if (created) setAnimals((prev) => [created, ...prev]);
+          }}
+        />
+      </AnimalFormDialog>
 
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => { setCategory(""); setAge(""); }}>Clear</Button>
-          <Button variant="contained" onClick={() => setOpenFilter(false)}>Apply</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Loading / Error */}
+      {/* Loading / Error / List */}
       {loading ? (
-        <Typography>Loading animals...</Typography>
+        <Box sx={{ textAlign: "center", mt: 6 }}>
+          <CircularProgress />
+        </Box>
       ) : error ? (
         <Typography color="error">Error: {error}</Typography>
       ) : (
-        <Grid container spacing={3} justifyContent="center">
+        <Grid container spacing={1.25} justifyContent="center">
           {filteredAnimals.length > 0 ? (
             filteredAnimals.map((animal) => (
-              <Grid item key={animal.id} xs={12} sm={6} md={4} lg={3}>
+              <Grid item key={animal.id} xs={12} sm={6} md={4} lg={2}>
                 <AnimalCard
                   animal={animal}
-                  onDeleted={(deletedId) => setAnimals(prev => prev.filter(a => a.id !== deletedId))}
+                  onClick={(a) => {
+                    setSelectedAnimal(a);
+                    setOpenDetails(true);
+                  }}
+                  onDeleted={(deletedId) =>
+                    setAnimals((prev) => prev.filter((x) => x.id !== deletedId))
+                  }
                 />
               </Grid>
             ))
           ) : (
-            <Typography>No results found</Typography>
+            <Typography sx={{ m: 4 }}>No results found</Typography>
           )}
         </Grid>
       )}
+
+      {/* Details Dialog */}
+      <AnimalDetailsDialog open={openDetails} onClose={() => setOpenDetails(false)}>
+        <AnimalDetailsContent animal={selectedAnimal} onAdopt={() => {}} />
+      </AnimalDetailsDialog>
     </Box>
   );
 }

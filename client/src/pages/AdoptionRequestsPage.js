@@ -13,7 +13,6 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { animals } from "./mockData"
 
 import { useNavigate } from "react-router-dom";
 

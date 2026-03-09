@@ -1,0 +1,452 @@
+// src/components/AddAnimalForm.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Box,
+  Button,
+  Card,
+  TextField,
+  MenuItem,
+  Snackbar,
+  Alert,
+  InputAdornment,
+  Checkbox,
+  FormControlLabel
+} from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
+
+import PetsIcon from "@mui/icons-material/Pets";
+import ImageIcon from "@mui/icons-material/Image";
+import PersonIcon from "@mui/icons-material/Person";
+import PhoneIcon from "@mui/icons-material/Phone";
+
+import { AnimalsApi, CategoriesApi } from "../api/api";
+import LocationAutocomplete from "../components/LocationNominatimAutocomplete";
+
+export default function AddAnimalForm({
+  mode = "add",
+  initialValues,
+  setExternalLoading,
+  onSuccess
+}) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  const menuProps = useMemo(() => {
+    return {
+      PaperProps: {
+        sx: {
+          bgcolor: "background.paper",
+          color: "text.primary",
+          border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.12 : 0.10)}`,
+          mt: 1,
+          backdropFilter: "blur(6px)",
+          "& .MuiMenuItem-root": {
+            borderRadius: 2,
+            mx: 1,
+            my: 0.5,
+            transition: "0.15s"
+          },
+          "& .MuiMenuItem-root:hover": {
+            bgcolor: alpha(theme.palette.primary.main, isDark ? 0.14 : 0.10)
+          },
+          "& .Mui-selected": {
+            bgcolor: `${alpha(theme.palette.primary.main, isDark ? 0.30 : 0.18)} !important`,
+            color: "text.primary"
+          },
+          "& .Mui-selected:hover": {
+            bgcolor: `${alpha(theme.palette.primary.main, isDark ? 0.38 : 0.24)} !important`
+          }
+        }
+      }
+    };
+  }, [theme, isDark]);
+
+  const empty = {
+    name: "",
+    category: "", // ✅ string name (not id)
+    gender: "",
+    size: "",
+    location: "", // ✅ NOT required
+    description: "",
+    ownerName: "",
+    ownerPhone: "",
+    age: "", // number | "" | null
+    status: "AVAILABLE",
+    image: null
+  };
+
+  const [form, setForm] = useState(() => ({
+    ...empty,
+    ...(initialValues || {})
+  }));
+
+  const [preview, setPreview] = useState(null);
+
+  // ✅ snacks (no alerts)
+  const [snack, setSnack] = useState({
+    open: false,
+    severity: "success",
+    message: ""
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const [categories, setCategories] = useState([]);
+  const [catsLoading, setCatsLoading] = useState(true);
+
+  const isEdit = mode === "edit";
+  const entityId = initialValues?.id;
+
+  useEffect(() => {
+    setForm({ ...empty, ...(initialValues || {}) });
+    // preview will be set only on file selection
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCategories() {
+      setCatsLoading(true);
+      try {
+        const data = await CategoriesApi.list();
+        if (mounted) setCategories(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+        if (mounted) {
+          setSnack({
+            open: true,
+            severity: "error",
+            message: "Failed to load categories"
+          });
+        }
+      } finally {
+        if (mounted) setCatsLoading(false);
+      }
+    }
+
+    loadCategories();
+    return () => (mounted = false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  // ✅ age validation: allow "" (not provided) or number 0..50 or null (unknown)
+  const isAgeValid =
+    form.age === "" ||
+    form.age === null ||
+    (Number.isInteger(form.age) && form.age >= 0 && form.age <= 50);
+
+  // ✅ Location is NOT required
+  const isFormValid =
+    String(form.name || "").trim().length > 0 &&
+    String(form.category || "").trim().length > 0 &&
+    String(form.gender || "").trim().length > 0 &&
+    String(form.size || "").trim().length > 0 &&
+    String(form.ownerName || "").trim().length > 0 &&
+    String(form.ownerPhone || "").trim().length > 0 &&
+    isAgeValid;
+
+  const showSnack = (severity, message) =>
+    setSnack({ open: true, severity, message });
+
+  async function handleSubmit(e) {
+    e?.preventDefault?.();
+
+    if (!isFormValid) {
+      showSnack("warning", "Please fill all required fields");
+      return;
+    }
+
+    if (isEdit && !entityId) {
+      showSnack("error", "Missing animal id for edit");
+      return;
+    }
+
+    setSubmitting(true);
+    setExternalLoading?.(true);
+
+    try {
+      // ✅ Backend expects category as NAME (string)
+      const bodyObj = {
+        name: String(form.name || "").trim(),
+        category: String(form.category || "").trim(),
+        gender: String(form.gender || "").trim(),
+        size: String(form.size || "").trim(),
+        age: form.age === "" ? null : form.age, // "" -> null
+        status: form.status || "AVAILABLE",
+        location: String(form.location || "").trim(), // optional
+        description: String(form.description || "").trim(),
+        ownerName: String(form.ownerName || "").trim(),
+        ownerPhone: String(form.ownerPhone || "").trim()
+      };
+
+      let saved;
+
+      // ✅ if there's a file → multipart
+      if (form.image) {
+        const fd = new FormData();
+        fd.append("body", JSON.stringify(bodyObj));
+        fd.append("image", form.image);
+
+        // IMPORTANT: your api.js currently has updateMultipart(formData) without id.
+        // We'll call PUT /api/animals/{id} by using update() when no image,
+        // and by using updateMultipart(id, fd) if you added that method.
+        //
+        // If you DID NOT update AnimalsApi.updateMultipart yet, do this:
+        // saved = await AnimalsApi.update(entityId, bodyObj) // (no image)
+        //
+        // ✅ Here we assume you have: updateMultipart(id, formData)
+        saved = isEdit
+          ? await AnimalsApi.updateMultipart(entityId, fd)
+          : await AnimalsApi.createMultipart(fd);
+      } else {
+        saved = isEdit
+          ? await AnimalsApi.update(entityId, bodyObj)
+          : await AnimalsApi.create(bodyObj);
+      }
+
+      showSnack("success", isEdit ? "Animal updated successfully!" : "Animal added successfully!");
+      onSuccess?.(saved);
+    } catch (err) {
+      console.error("Create/Update failed:", err);
+
+      const msg =
+        err?.body?.message ||
+        (typeof err?.body === "string" && err.body.trim().length ? err.body : null) ||
+        err?.message ||
+        "Request failed";
+
+      showSnack("error", msg);
+    } finally {
+      setSubmitting(false);
+      setExternalLoading?.(false);
+    }
+  }
+
+  return (
+    <Card
+      sx={{
+        p: 4,
+        borderRadius: 6,
+        bgcolor: "background.paper",
+        color: "text.primary",
+        border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.10 : 0.08)}`
+      }}
+    >
+      {/* ✅ REAL FORM with id so dialog button can submit it */}
+      <Box
+        component="form"
+        id="animal-form"
+        onSubmit={handleSubmit}
+        sx={{ display: "flex", flexDirection: "column", gap: 3 }}
+      >
+        <TextField
+          fullWidth
+          required
+          label="Animal Name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <PetsIcon />
+              </InputAdornment>
+            )
+          }}
+        />
+
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <TextField
+            select
+            required
+            label="Category"
+            value={form.category || ""}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            SelectProps={{ MenuProps: menuProps }}
+            sx={{ flex: 1 }}
+          >
+            {catsLoading && (
+              <MenuItem value="">
+                <em>Loading...</em>
+              </MenuItem>
+            )}
+            {!catsLoading && categories.length === 0 && (
+              <MenuItem value="">
+                <em>No categories</em>
+              </MenuItem>
+            )}
+
+            {/* ✅ VALUE IS NAME (string) */}
+            {categories.map((c) => (
+              <MenuItem key={c.id ?? c.name} value={c.name}>
+                {c.name}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {/* ✅ optional */}
+          <LocationAutocomplete
+            value={form.location}
+            onChange={(val) => setForm({ ...form, location: val || "" })}
+          />
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <TextField
+            select
+            fullWidth
+            required
+            label="Gender"
+            value={form.gender}
+            onChange={(e) => setForm({ ...form, gender: e.target.value })}
+            SelectProps={{ MenuProps: menuProps }}
+          >
+            <MenuItem value="Male">Male</MenuItem>
+            <MenuItem value="Female">Female</MenuItem>
+          </TextField>
+
+          <TextField
+            select
+            fullWidth
+            required
+            label="Size"
+            value={form.size}
+            onChange={(e) => setForm({ ...form, size: e.target.value })}
+            SelectProps={{ MenuProps: menuProps }}
+          >
+            <MenuItem value="Small">Small</MenuItem>
+            <MenuItem value="Medium">Medium</MenuItem>
+            <MenuItem value="Large">Large</MenuItem>
+          </TextField>
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+          <TextField
+            type="number"
+            label="Age"
+            value={form.age === null ? "" : form.age}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") return setForm({ ...form, age: "" });
+              let n = parseInt(raw, 10);
+              if (Number.isNaN(n)) return setForm({ ...form, age: "" });
+              if (n < 0) n = 0;
+              if (n > 50) n = 50;
+              setForm({ ...form, age: n });
+            }}
+            disabled={form.age === null}
+            fullWidth
+            inputProps={{ min: 0, max: 50, step: 1 }}
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={form.age === null}
+                onChange={(e) => {
+                  if (e.target.checked) setForm({ ...form, age: null });
+                  else setForm({ ...form, age: "" });
+                }}
+              />
+            }
+            label="Unknown"
+          />
+        </Box>
+
+        <Button component="label" variant="outlined" startIcon={<ImageIcon />} fullWidth disabled={submitting}>
+          Upload Image
+          <input
+            type="file"
+            hidden
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                if (preview) URL.revokeObjectURL(preview);
+                setForm({ ...form, image: file });
+                setPreview(URL.createObjectURL(file));
+              }
+            }}
+          />
+        </Button>
+
+        {preview && (
+          <Box sx={{ textAlign: "center" }}>
+            <img
+              src={preview}
+              alt="preview"
+              style={{ width: 120, borderRadius: 8, marginTop: 8 }}
+            />
+          </Box>
+        )}
+
+        <TextField
+          fullWidth
+          multiline
+          rows={2}
+          label="Description"
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
+
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <TextField
+            fullWidth
+            required
+            label="Owner Name"
+            value={form.ownerName}
+            onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PersonIcon />
+                </InputAdornment>
+              )
+            }}
+          />
+
+          <TextField
+            fullWidth
+            required
+            label="Owner Phone"
+            value={form.ownerPhone}
+            onChange={(e) => setForm({ ...form, ownerPhone: e.target.value })}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PhoneIcon />
+                </InputAdornment>
+              )
+            }}
+          />
+        </Box>
+
+        {/* optional: allow pressing Enter to submit */}
+        <Box sx={{ display: "none" }}>
+          <Button type="submit" />
+        </Box>
+      </Box>
+
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={2200}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          severity={snack.severity}
+          variant="filled"
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+          sx={{ borderRadius: 2 }}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
+    </Card>
+  );
+}

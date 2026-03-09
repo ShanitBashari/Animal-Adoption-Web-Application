@@ -1,57 +1,172 @@
+const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
-const API_BASE = process.env.REACT_APP_API_URL;
-
-function getAuthHeaders() {
-  const token = localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+function getToken() {
+  try {
+    const raw = localStorage.getItem("auth");
+    const auth = raw ? JSON.parse(raw) : null;
+    return auth?.accessToken || null;
+  } catch {
+    return null;
+  }
 }
 
-async function request(url, opts = {}) {
-  const headers = {
-    "Content-Type": "application/json",
+async function handleResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
+  const body = isJson
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => null);
+
+  if (!response.ok) {
+    const msg =
+      body && body.message
+        ? body.message
+        : typeof body === "string" && body.length
+          ? body
+          : response.statusText || `HTTP ${response.status}`;
+
+    const err = new Error(msg);
+    err.status = response.status;
+    err.body = body;
+    throw err;
+  }
+
+  return body;
+}
+
+/**
+ * Unified request helper:
+ * - Adds Authorization header automatically (if token exists)
+ * - Sets JSON headers automatically when body is a plain object
+ * - Supports FormData (does NOT set Content-Type so browser adds boundary)
+ */
+async function request(
+  path,
+  {
+    method = "GET",
+    body,
+    headers,
+    auth = true, // allow disabling auth header per request if needed
+  } = {}
+) {
+  const token = auth ? getToken() : null;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
+  const finalHeaders = {
     Accept: "application/json",
-    ...getAuthHeaders(),
-    ...(opts.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(headers || {}),
   };
 
-  const res = await fetch(url, {...opts, headers });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw Object.assign(new Error(`HTTP ${res.status}: ${res.statusText}`), {
-      status: res.status,
-      body: text,
-    });
+  // If it's JSON body and caller didn't explicitly set content-type
+  if (body != null && !isFormData && !finalHeaders["Content-Type"]) {
+    finalHeaders["Content-Type"] = "application/json";
   }
 
-  if (res.status === 204) 
-    return null;
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: finalHeaders,
+    body:
+      body == null
+        ? undefined
+        : isFormData
+          ? body
+          : JSON.stringify(body),
+  });
 
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) {
-    const text = await res.text().catch(() => "");
-    throw Object.assign(new Error("Expected JSON but got non-JSON response"), { body: text });
-  }
-
-  return res.json();
+  return handleResponse(res);
 }
 
-// API helpers
-export const AnimalsApi = {
-  list: () => request(`${API_BASE}/api/animals`),
-  get: (id) => request(`${API_BASE}/api/animals/${id}`),
-  remove: (id) => request(`${API_BASE}/api/animals/${id}`, { method: "DELETE" }),
-  create: (dto) => request(`${API_BASE}/api/animals`, { method: "POST", body: JSON.stringify(dto) }),
-  update: (id, dto) => request(`${API_BASE}/api/animals/${id}`, { method: "PUT", body: JSON.stringify(dto) }),
-  search: (q, category) => request(`${API_BASE}/api/animals/search?q=${encodeURIComponent(q||"")}&category=${encodeURIComponent(category||"")}`),
-};
+/* -------------------- APIs -------------------- */
 
-export const RequestApi = {
-  create: (dto) => request(`${API_BASE}/api/requests`, { method: "POST", body: JSON.stringify(dto) }),
-  find: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return request(`${API_BASE}/api/requests${qs ? "?" + qs : ""}`);
+export const AnimalsApi = {
+  list({ q, category } = {}) {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (category) params.set("category", category);
+
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return request(`/api/animals${suffix}`, { method: "GET" });
+  },
+
+  mine() {
+    return request(`/api/animals/mine`, { method: "GET" });
+  },
+
+  get(id) {
+    return request(`/api/animals/${encodeURIComponent(id)}`, { method: "GET" });
+  },
+
+  create(data) {
+    return request(`/api/animals`, { method: "POST", body: data });
+  },
+
+  createMultipart(formData) {
+    return request(`/api/animals`, { method: "POST", body: formData });
+  },
+
+  update(id, data) {
+    return request(`/api/animals/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: data,
+    });
+  },
+
+  updateMultipart(id, formData) {
+    return request(`/api/animals/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: formData
+    });
+  },
+
+  delete(id) {
+    return request(`/api/animals/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
 };
 
-export default { AnimalsApi };
+export const RequestsApi = {
+  create(dto) {
+    return request(`/api/requests`, { method: "POST", body: dto });
+  },
+
+  get(id) {
+    return request(`/api/requests/${encodeURIComponent(id)}`, { method: "GET" });
+  },
+
+};
+
+export const CategoriesApi = {
+  list() {
+    return request(`/api/categories`, { method: "GET" });
+  },
+
+  get(id) {
+    return request(`/api/categories/${encodeURIComponent(id)}`, { method: "GET" });
+  },
+
+  create(dto) {
+    return request(`/api/categories`, { method: "POST", body: dto });
+  },
+
+  update(id, dto) {
+    return request(`/api/categories/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: dto,
+    });
+  },
+
+  delete(id) {
+    return request(`/api/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
+};
+
+export const AuthApi = {
+  register(payload) {
+    return request(`/api/auth/register`, { method: "POST", body: payload, auth: false });
+  },
+
+  login(payload) {
+    return request(`/api/auth/login`, { method: "POST", body: payload, auth: false });
+  },
+};
