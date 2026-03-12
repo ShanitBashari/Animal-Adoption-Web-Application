@@ -1,4 +1,3 @@
-// src/components/AddAnimalForm.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
@@ -21,6 +20,7 @@ import PhoneIcon from "@mui/icons-material/Phone";
 
 import { AnimalsApi, CategoriesApi } from "../api/api";
 import LocationAutocomplete from "../components/LocationNominatimAutocomplete";
+import { scrollbarStyle } from "../styles/scrollbar";
 
 export default function AddAnimalForm({
   mode = "add",
@@ -31,10 +31,17 @@ export default function AddAnimalForm({
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
 
+  /**
+   * Styles for select dropdown menus.
+   * Uses the shared scrollbar style and adapts colors to the current theme.
+   */
   const menuProps = useMemo(() => {
     return {
       PaperProps: {
         sx: {
+          ...scrollbarStyle(theme),
+          maxHeight: 280,
+          overflowY: "auto",
           bgcolor: "background.paper",
           color: "text.primary",
           border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.12 : 0.10)}`,
@@ -61,6 +68,9 @@ export default function AddAnimalForm({
     };
   }, [theme, isDark]);
 
+  /**
+   * Default form values used for creating a new animal listing.
+   */
   const empty = {
     name: "",
     category: "",
@@ -96,20 +106,32 @@ export default function AddAnimalForm({
   const isEdit = mode === "edit";
   const entityId = initialValues?.id;
 
+  /**
+   * Re-initializes the form when initialValues change.
+   * This is useful when the same dialog is reused for editing different animals.
+   */
   useEffect(() => {
     setForm({ ...empty, ...(initialValues || {}) });
   }, [initialValues]);
 
+  /**
+   * Loads active categories for the category select field.
+   */
   useEffect(() => {
     let mounted = true;
 
     async function loadCategories() {
       setCatsLoading(true);
+
       try {
-        const data = await CategoriesApi.list();
-        if (mounted) setCategories(Array.isArray(data) ? data : []);
+        const data = await CategoriesApi.listActive();
+
+        if (mounted) {
+          setCategories(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Failed to load categories", err);
+
         if (mounted) {
           setSnack({
             open: true,
@@ -123,20 +145,37 @@ export default function AddAnimalForm({
     }
 
     loadCategories();
-    return () => (mounted = false);
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
+  /**
+   * Cleans up the object URL used for image preview
+   * to avoid memory leaks when the preview changes or component unmounts.
+   */
   useEffect(() => {
     return () => {
       if (preview) URL.revokeObjectURL(preview);
     };
   }, [preview]);
 
+  /**
+   * Validates the age field.
+   * Age can be:
+   * - an empty string while typing
+   * - null when marked as unknown
+   * - an integer between 0 and 50
+   */
   const isAgeValid =
     form.age === "" ||
     form.age === null ||
     (Number.isInteger(form.age) && form.age >= 0 && form.age <= 50);
 
+  /**
+   * Checks whether all required fields are filled correctly.
+   */
   const isFormValid =
     String(form.name || "").trim().length > 0 &&
     String(form.category || "").trim().length > 0 &&
@@ -146,12 +185,19 @@ export default function AddAnimalForm({
     String(form.ownerName || "").trim().length > 0 &&
     String(form.ownerPhone || "").trim().length > 0 &&
     String(form.age || "").trim().length > 0 &&
-
     isAgeValid;
 
+  /**
+   * Opens a snackbar with the given severity and message.
+   */
   const showSnack = (severity, message) =>
     setSnack({ open: true, severity, message });
 
+  /**
+   * Handles both create and edit submission flows.
+   * If an image is selected, multipart API is used.
+   * Otherwise, regular JSON create/update API is used.
+   */
   async function handleSubmit(e) {
     e?.preventDefault?.();
 
@@ -198,7 +244,13 @@ export default function AddAnimalForm({
           : await AnimalsApi.create(bodyObj);
       }
 
-      showSnack("success", isEdit ? "Animal updated successfully!" : "Animal submitted successfully and is waiting for admin approval.");
+      showSnack(
+        "success",
+        isEdit
+          ? "Animal updated successfully!"
+          : "Animal submitted successfully and is waiting for admin approval."
+      );
+
       onSuccess?.(saved);
     } catch (err) {
       console.error("Create/Update failed:", err);
@@ -262,13 +314,13 @@ export default function AddAnimalForm({
                 <em>Loading...</em>
               </MenuItem>
             )}
+
             {!catsLoading && categories.length === 0 && (
               <MenuItem value="">
                 <em>No categories</em>
               </MenuItem>
             )}
 
-            {/* ✅ VALUE IS NAME (string) */}
             {categories.map((c) => (
               <MenuItem key={c.id ?? c.name} value={c.name}>
                 {c.name}
@@ -276,7 +328,6 @@ export default function AddAnimalForm({
             ))}
           </TextField>
 
-          {/* ✅ optional */}
           <LocationAutocomplete
             value={form.location}
             onChange={(val) => setForm({ ...form, location: val || "" })}
@@ -320,11 +371,17 @@ export default function AddAnimalForm({
             value={form.age === null ? "" : form.age}
             onChange={(e) => {
               const raw = e.target.value;
+
               if (raw === "") return setForm({ ...form, age: "" });
+
               let n = parseInt(raw, 10);
+
               if (Number.isNaN(n)) return setForm({ ...form, age: "" });
+
+              // Keep age within the allowed range.
               if (n < 0) n = 0;
               if (n > 50) n = 50;
+
               setForm({ ...form, age: n });
             }}
             disabled={form.age === null}
@@ -337,8 +394,11 @@ export default function AddAnimalForm({
               <Checkbox
                 checked={form.age === null}
                 onChange={(e) => {
-                  if (e.target.checked) setForm({ ...form, age: null });
-                  else setForm({ ...form, age: "" });
+                  if (e.target.checked) {
+                    setForm({ ...form, age: null });
+                  } else {
+                    setForm({ ...form, age: "" });
+                  }
                 }}
               />
             }
@@ -346,7 +406,13 @@ export default function AddAnimalForm({
           />
         </Box>
 
-        <Button component="label" variant="outlined" startIcon={<ImageIcon />} fullWidth disabled={submitting}>
+        <Button
+          component="label"
+          variant="outlined"
+          startIcon={<ImageIcon />}
+          fullWidth
+          disabled={submitting}
+        >
           Upload Image
           <input
             type="file"
@@ -354,8 +420,10 @@ export default function AddAnimalForm({
             accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0];
+
               if (file) {
                 if (preview) URL.revokeObjectURL(preview);
+
                 setForm({ ...form, image: file });
                 setPreview(URL.createObjectURL(file));
               }
@@ -380,6 +448,14 @@ export default function AddAnimalForm({
           label="Description"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
+          sx={{
+            "& .MuiInputBase-root": {
+              ...scrollbarStyle(theme)
+            },
+            "& textarea": {
+              ...scrollbarStyle(theme)
+            }
+          }}
         />
 
         <Box sx={{ display: "flex", gap: 2 }}>

@@ -46,6 +46,9 @@ function Navbar() {
   const isLoggedIn = !!user?.accessToken;
   const isAdmin = (user?.roles || []).includes("ADMIN");
 
+  /**
+   * Builds the navigation list dynamically based on authentication state and user role.
+   */
   const menuItems = [
     { text: "Home", icon: <HomeIcon />, path: "/" },
 
@@ -67,19 +70,31 @@ function Navbar() {
       : [])
   ];
 
+  /**
+   * Navigates to the target route and closes the side drawer.
+   */
   const handleNavigate = (path) => {
     navigate(path);
     setOpen(false);
   };
 
+  /**
+   * Logs the user out, shows a toast message,
+   * closes the drawer and redirects to the login page.
+   */
   const handleLogout = () => {
     logout();
-    toast.success("Logged out successfully 👋", { position: "bottom-right", autoClose: 2500 });
+    toast.success("Logged out successfully 👋", {
+      position: "bottom-right",
+      autoClose: 2500
+    });
     setOpen(false);
     navigate("/login", { replace: true });
   };
 
-  // styles based on theme (no hardcoded dark colors)
+  /**
+   * Shared theme-aware style values used across the navbar and drawer.
+   */
   const drawerBg = theme.palette.background.paper;
   const drawerText = theme.palette.text.primary;
   const iconColor = theme.palette.primary.main;
@@ -95,7 +110,6 @@ function Navbar() {
 
   return (
     <>
-      {/* Top AppBar */}
       <AppBar
         position="sticky"
         color="default"
@@ -163,7 +177,6 @@ function Navbar() {
         </Toolbar>
       </AppBar>
 
-      {/* Drawer */}
       <Drawer
         anchor="left"
         open={open}

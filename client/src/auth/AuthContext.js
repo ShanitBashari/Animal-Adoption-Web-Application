@@ -4,6 +4,10 @@ import { AuthApi } from "../api/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  /**
+   * Initializes auth state from localStorage
+   * so login persists across page refreshes.
+   */
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem("auth");
@@ -13,6 +17,11 @@ export function AuthProvider({ children }) {
     }
   });
 
+  /**
+   * Logs in the user through the API,
+   * stores auth data in localStorage,
+   * and updates the global auth state.
+   */
   const login = async (username, password) => {
     const data = await AuthApi.login({ username, password });
 
@@ -31,6 +40,9 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  /**
+   * Clears persisted auth data and resets the auth state.
+   */
   const logout = () => {
     localStorage.removeItem("auth");
     setUser(null);
@@ -43,6 +55,9 @@ export function AuthProvider({ children }) {
   );
 }
 
+/**
+ * Convenience hook for accessing authentication state and actions.
+ */
 export function useAuth() {
   return useContext(AuthContext);
 }

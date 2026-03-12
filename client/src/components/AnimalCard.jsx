@@ -10,19 +10,23 @@ import LocationOnIcon from "@mui/icons-material/LocationOn";
 import CakeIcon from "@mui/icons-material/Cake";
 import PetsIcon from "@mui/icons-material/Pets";
 
-import { useNavigate } from "react-router-dom";
-
 function AnimalCard({ animal, onClick }) {
-  const navigate = useNavigate();
   const API_BASE = process.env.REACT_APP_API_URL;
 
+  /**
+   * Resolves the image source from different possible formats:
+   * - base64 image
+   * - full URL
+   * - backend relative path
+   * Falls back to a default image if none exists.
+   */
   const raw = animal?.image || "";
   const imageSrc = raw
-    ? (raw.startsWith("data:") || raw.startsWith("http")
-        ? raw
-        : `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`)
+    ? raw.startsWith("data:") || raw.startsWith("http")
+      ? raw
+      : `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`
     : "/no-image.png";
-    
+
   return (
     <Card
       onClick={() => onClick?.(animal)}
@@ -46,7 +50,9 @@ function AnimalCard({ animal, onClick }) {
           height="170"
           image={imageSrc || "/no-image.png"}
           alt={animal.name || "Animal"}
-          onError={(e) => { e.currentTarget.src = "/placeholder-animal.png"; }}
+          onError={(e) => {
+            e.currentTarget.src = "/placeholder-animal.png";
+          }}
         />
 
         <Box
@@ -60,11 +66,7 @@ function AnimalCard({ animal, onClick }) {
             py: 0.5
           }}
         >
-          <Typography
-            variant="subtitle1"
-            fontWeight="bold"
-            noWrap
-          >
+          <Typography variant="subtitle1" fontWeight="bold" noWrap>
             {animal.name}
           </Typography>
         </Box>
@@ -80,7 +82,6 @@ function AnimalCard({ animal, onClick }) {
           gap: 0.5
         }}
       >
-        {/* Location */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <LocationOnIcon fontSize="small" color="primary" />
           <Typography variant="body2" noWrap>
@@ -88,7 +89,6 @@ function AnimalCard({ animal, onClick }) {
           </Typography>
         </Box>
 
-        {/* Age */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <CakeIcon fontSize="small" color="secondary" />
           <Typography variant="body2" noWrap>
@@ -96,7 +96,6 @@ function AnimalCard({ animal, onClick }) {
           </Typography>
         </Box>
 
-        {/* Category */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <PetsIcon fontSize="small" color="success" />
           <Typography

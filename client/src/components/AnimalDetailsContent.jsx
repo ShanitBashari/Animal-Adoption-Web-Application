@@ -25,6 +25,13 @@ export default function AnimalDetailsContent({
 
   if (!animal) return null;
 
+  /**
+   * Resolves the displayed image from one of the supported formats:
+   * - empty / missing image -> fallback image
+   * - base64 image
+   * - full URL
+   * - backend relative path
+   */
   const raw = animal?.image || "";
   const API_BASE = process.env.REACT_APP_API_URL;
 
@@ -32,34 +39,50 @@ export default function AnimalDetailsContent({
     !raw || String(raw).trim() === ""
       ? "/no-image.png"
       : raw.startsWith("data:") || raw.startsWith("http")
-      ? raw
-      : `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`;
+        ? raw
+        : `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`;
 
+  /**
+   * Normalizes category label from either an object or plain string.
+   */
   const categoryLabel =
     typeof animal.category === "object"
       ? animal.category?.name || "Category"
       : animal.category || "Category";
 
+  /**
+   * Builds a friendly age label and handles missing age values.
+   */
   const ageLabel =
     animal.age === null || animal.age === "" || typeof animal.age === "undefined"
       ? "Unknown age"
       : `Age: ${animal.age}`;
 
   const status = (animal.status || "AVAILABLE").toString().toUpperCase();
-
   const isInactive = status === "INACTIVE";
 
+  /**
+   * Tries multiple possible owner id fields because animal data
+   * may come from different backend response shapes.
+   */
   const ownerUserId =
     animal?.ownerUserId ??
     animal?.userId ??
     animal?.owner?.id ??
     null;
 
+  /**
+   * Determines whether the current user is viewing their own listing.
+   * This is used to hide the adopt action and show the "Your listing" badge instead.
+   */
   const isOwnListing =
     currentUserId != null &&
     ownerUserId != null &&
     String(currentUserId) === String(ownerUserId);
 
+  /**
+   * Returns label, icon and theme-aware colors for the current animal status.
+   */
   const getStatusMeta = (s) => {
     switch (s) {
       case "AVAILABLE":
@@ -70,6 +93,7 @@ export default function AnimalDetailsContent({
           border: alpha(theme.palette.success.main, isDark ? 0.35 : 0.3),
           text: isDark ? theme.palette.success.light : theme.palette.success.dark
         };
+
       case "PENDING":
         return {
           label: "PENDING",
@@ -78,6 +102,7 @@ export default function AnimalDetailsContent({
           border: alpha(theme.palette.warning.main, isDark ? 0.35 : 0.3),
           text: isDark ? theme.palette.warning.light : theme.palette.warning.dark
         };
+
       case "ADOPTED":
         return {
           label: "ADOPTED",
@@ -86,6 +111,7 @@ export default function AnimalDetailsContent({
           border: alpha(theme.palette.error.main, isDark ? 0.35 : 0.3),
           text: isDark ? theme.palette.error.light : theme.palette.error.dark
         };
+
       default:
         return {
           label: s || "UNKNOWN",
@@ -99,6 +125,9 @@ export default function AnimalDetailsContent({
 
   const statusMeta = getStatusMeta(status);
 
+  /**
+   * Shared styles used across the details layout to keep the UI consistent.
+   */
   const sectionTitleSx = {
     fontWeight: 900,
     letterSpacing: "0.6px",
@@ -129,6 +158,9 @@ export default function AnimalDetailsContent({
     fontWeight: 800
   };
 
+  /**
+   * Applies a soft themed color tint to icons in different sections.
+   */
   const iconTint = (colorKey) => ({
     color: alpha(theme.palette[colorKey].main, isDark ? 0.95 : 0.85)
   });
@@ -223,7 +255,8 @@ export default function AnimalDetailsContent({
                 fontWeight: 900,
                 textTransform: "none",
                 alignSelf: "flex-start",
-                boxShadow: isDark ? 8 : 4
+                boxShadow: isDark ? 8 : 4,
+                mt: 3
               }}
             >
               Adopt Now

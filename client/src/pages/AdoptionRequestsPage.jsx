@@ -43,6 +43,10 @@ function AdoptionRequestsPage() {
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
 
+  /**
+   * Loads the current user's adoption requests.
+   * Redirects to login if the user is not authenticated.
+   */
   useEffect(() => {
     if (!user?.accessToken) {
       navigate("/login");
@@ -57,11 +61,13 @@ function AdoptionRequestsPage() {
         setError("");
 
         const data = await RequestsApi.list({ userId: user.id });
+
         if (mounted) {
           setMyRequests(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         console.error("Failed to load requests:", err);
+
         const msg =
           err?.body?.message ||
           err?.body ||
@@ -77,11 +83,15 @@ function AdoptionRequestsPage() {
     }
 
     loadRequests();
+
     return () => {
       mounted = false;
     };
   }, [user?.accessToken, user?.id, navigate]);
 
+  /**
+   * Cancels a pending adoption request and updates only that request locally.
+   */
   async function handleCancelConfirmed() {
     if (!pendingCancel?.id) return;
 
@@ -99,6 +109,7 @@ function AdoptionRequestsPage() {
       setPendingCancel(null);
     } catch (err) {
       console.error("Cancel failed:", err);
+
       const msg =
         err?.body?.message ||
         err?.body ||
@@ -111,6 +122,9 @@ function AdoptionRequestsPage() {
     }
   }
 
+  /**
+   * Maps request status to a user-friendly label, chip color and icon.
+   */
   function getStatusConfig(status) {
     switch (status) {
       case "APPROVED":
@@ -141,6 +155,10 @@ function AdoptionRequestsPage() {
     }
   }
 
+  /**
+   * Rebuilds an animal-like object from request fields
+   * so it can be displayed by the shared animal details dialog.
+   */
   function buildAnimalFromRequest(req) {
     return {
       id: req.animalId,
@@ -158,6 +176,9 @@ function AdoptionRequestsPage() {
     };
   }
 
+  /**
+   * Resolves animal image from base64, full URL or backend relative path.
+   */
   function resolveImageSrc(raw) {
     const API_BASE = process.env.REACT_APP_API_URL;
 
@@ -169,14 +190,6 @@ function AdoptionRequestsPage() {
       return raw;
     }
 
-    return `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`;
-  }
-
-  function resolveImageSrc(raw) {
-    const API_BASE = process.env.REACT_APP_API_URL;
-    if (!raw) return "/placeholder-animal.png";
-
-    if (raw.startsWith("data:") || raw.startsWith("http")) return raw;
     return `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`;
   }
 

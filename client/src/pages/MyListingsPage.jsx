@@ -37,24 +37,24 @@ function MyListingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // view
   const [openDetails, setOpenDetails] = useState(false);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
 
-  // edit
   const [openEdit, setOpenEdit] = useState(false);
   const [editingAnimal, setEditingAnimal] = useState(null);
   const editSubmitRef = React.useRef(null);
   const [editLoading, setEditLoading] = useState(false);
 
-  // delete
   const [openDelete, setOpenDelete] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // activate
   const [activatingId, setActivatingId] = useState(null);
 
+  /**
+   * Loads the current user's animal listings.
+   * Redirects to login if the user is not authenticated.
+   */
   useEffect(() => {
     if (!user?.accessToken) {
       navigate("/login");
@@ -67,13 +67,27 @@ function MyListingsPage() {
       try {
         setLoading(true);
         setError("");
+
         const data = await AnimalsApi.mine();
-        if (mounted) setMyAnimals(Array.isArray(data) ? data : []);
+
+        if (mounted) {
+          setMyAnimals(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Failed to load mine:", err);
-        const msg = err?.body?.message || err?.body || err?.message || "Failed to load";
+
+        const msg =
+          err?.body?.message ||
+          err?.body ||
+          err?.message ||
+          "Failed to load";
+
         if (mounted) {
-          setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
+          setError(
+            typeof msg === "string"
+              ? msg
+              : JSON.stringify(msg).slice(0, 200)
+          );
         }
       } finally {
         if (mounted) setLoading(false);
@@ -81,16 +95,22 @@ function MyListingsPage() {
     }
 
     loadMine();
+
     return () => {
       mounted = false;
     };
   }, [user?.accessToken, navigate]);
 
+  /**
+   * Deletes the selected listing after user confirmation.
+   * After deletion, the page reloads the latest data from the server.
+   */
   async function handleDeleteConfirmed() {
     if (!pendingDelete?.id) return;
 
     try {
       setDeleteLoading(true);
+
       await AnimalsApi.delete(pendingDelete.id);
 
       const fresh = await AnimalsApi.mine();
@@ -100,16 +120,26 @@ function MyListingsPage() {
       setPendingDelete(null);
     } catch (err) {
       console.error("Delete failed:", err);
-      const msg = err?.body?.message || err?.body || err?.message || "Delete failed";
+
+      const msg =
+        err?.body?.message ||
+        err?.body ||
+        err?.message ||
+        "Delete failed";
+
       alert(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setDeleteLoading(false);
     }
   }
 
+  /**
+   * Reactivates an inactive listing and updates it locally in the UI.
+   */
   async function handleActivate(animalId) {
     try {
       setActivatingId(animalId);
+
       const updated = await AnimalsApi.activate(animalId);
 
       setMyAnimals((prev) =>
@@ -117,13 +147,23 @@ function MyListingsPage() {
       );
     } catch (err) {
       console.error("Activate failed:", err);
-      const msg = err?.body?.message || err?.body || err?.message || "Activate failed";
+
+      const msg =
+        err?.body?.message ||
+        err?.body ||
+        err?.message ||
+        "Activate failed";
+
       alert(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setActivatingId(null);
     }
   }
 
+  /**
+   * Returns a visual label and style object for each listing status.
+   * This is used to render the status chip on top of the animal card.
+   */
   function getStatusMeta(status) {
     const s = String(status || "").toUpperCase();
 
@@ -137,6 +177,7 @@ function MyListingsPage() {
             border: "1px solid #ffb74d"
           }
         };
+
       case "REJECTED":
         return {
           label: "REJECTED",
@@ -146,6 +187,7 @@ function MyListingsPage() {
             border: "1px solid #ef9a9a"
           }
         };
+
       case "INACTIVE":
         return {
           label: "INACTIVE",
@@ -155,6 +197,7 @@ function MyListingsPage() {
             border: "1px solid #b0bec5"
           }
         };
+
       case "AVAILABLE":
       case "APPROVED":
         return {
@@ -165,6 +208,7 @@ function MyListingsPage() {
             border: "1px solid #81c784"
           }
         };
+
       default:
         return {
           label: s || "UNKNOWN",
@@ -179,7 +223,6 @@ function MyListingsPage() {
 
   return (
     <>
-      {/* Back */}
       <Box
         onClick={() => navigate("/")}
         sx={(theme) => {
@@ -220,7 +263,6 @@ function MyListingsPage() {
       </Box>
 
       <Container maxWidth="lg" sx={{ mt: 6 }}>
-        {/* Header */}
         <Box sx={{ textAlign: "center", mb: 4 }}>
           <Typography
             variant="h3"
@@ -275,15 +317,12 @@ function MyListingsPage() {
               const statusUpper = String(animal.status || "").toUpperCase();
               const isInactive = statusUpper === "INACTIVE";
               const isPending = statusUpper === "PENDING";
-              const isRejected = statusUpper === "REJECTED";
               const isActivating = activatingId === animal.id;
               const statusMeta = getStatusMeta(statusUpper);
 
               return (
                 <Grid item key={animal.id} xs={12} sm={6} md={4} lg={3}>
                   <Box sx={{ position: "relative", display: "flex", justifyContent: "center" }}>
-                    
-                    {/* Animal card */}
                     <AnimalCard
                       animal={animal}
                       onClick={(a) => {
@@ -291,6 +330,7 @@ function MyListingsPage() {
                         setOpenDetails(true);
                       }}
                     />
+
                     <Chip
                       label={statusMeta.label}
                       size="small"
@@ -305,7 +345,6 @@ function MyListingsPage() {
                     />
                   </Box>
 
-                  {/* Actions */}
                   <Box
                     sx={{
                       mt: 1.2,
@@ -392,12 +431,10 @@ function MyListingsPage() {
         )}
       </Container>
 
-      {/* Details */}
       <AnimalDetailsDialog open={openDetails} onClose={() => setOpenDetails(false)}>
         <AnimalDetailsContent animal={selectedAnimal} hideAdopt />
       </AnimalDetailsDialog>
 
-      {/* Edit */}
       <AnimalFormDialog
         open={openEdit}
         onClose={() => setOpenEdit(false)}
@@ -420,15 +457,17 @@ function MyListingsPage() {
           onSuccess={(updated) => {
             setOpenEdit(false);
             setEditingAnimal(null);
-            if (updated)
+
+            // Update only the edited item in the local list.
+            if (updated) {
               setMyAnimals((prev) =>
                 prev.map((a) => (a.id === updated.id ? updated : a))
               );
+            }
           }}
         />
       </AnimalFormDialog>
 
-      {/* Delete confirm */}
       <ConfirmDialog
         open={openDelete}
         title="Remove listing?"

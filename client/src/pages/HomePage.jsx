@@ -29,6 +29,7 @@ import { AnimalsApi, CategoriesApi, RequestsApi } from "../api/api";
 import AnimalFormDialog from "../components/AnimalFormDialog";
 import AddAnimalForm from "../components/AddAnimalForm";
 import { useAuth } from "../auth/AuthContext";
+import { scrollbarStyle } from "../styles/scrollbar";
 
 function HomePage() {
   const [search, setSearch] = useState("");
@@ -67,36 +68,58 @@ function HomePage() {
   const addSubmitRef = useRef(null);
   const [addLoading, setAddLoading] = useState(false);
 
+  /**
+   * Loads all animals when the page is opened.
+   * The page later filters only public animals for display.
+   */
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         setError(null);
+
         const data = await AnimalsApi.list();
         setAnimals(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load animals:", err);
-        const message = err?.body?.message || err?.body || err?.message || "Unknown error";
-        setError(typeof message === "string" ? message : JSON.stringify(message).slice(0, 200));
+
+        const message =
+          err?.body?.message ||
+          err?.body ||
+          err?.message ||
+          "Unknown error";
+
+        setError(
+          typeof message === "string"
+            ? message
+            : JSON.stringify(message).slice(0, 200)
+        );
       } finally {
         setLoading(false);
       }
     }
+
     load();
   }, []);
 
+  /**
+   * Loads active categories for the filter dialog.
+   * Categories are sorted alphabetically for a better user experience.
+   */
   useEffect(() => {
     let mounted = true;
 
     async function loadCategories() {
       try {
-        const data = await CategoriesApi.list();
+        const data = await CategoriesApi.listActive();
         const arr = Array.isArray(data) ? data : [];
+
         arr.sort((a, b) => {
           const an = (a?.name ?? a).toString();
           const bn = (b?.name ?? b).toString();
           return an.localeCompare(bn, "he", { sensitivity: "base" });
         });
+
         if (mounted) setCategories(arr);
       } catch (err) {
         console.error("Failed to load categories", err);
@@ -104,27 +127,42 @@ function HomePage() {
     }
 
     loadCategories();
+
     return () => {
       mounted = false;
     };
   }, []);
 
+  /**
+   * Extracts a readable category name from different possible animal shapes.
+   * This helps support backend responses where category may be:
+   * - a string
+   * - an object
+   * - a fallback field like categoryName
+   */
   function categoryNameFromAnimal(animal) {
     if (!animal) return "";
+
     const c = animal.category;
+
     if (!c && (animal.categoryName || animal.category_name)) {
       return animal.categoryName || animal.category_name;
     }
+
     if (typeof c === "string") return c;
     if (typeof c === "number") return "";
     if (typeof c === "object") return c.name || c.label || "";
+
     return "";
   }
 
+  /**
+   * Applies all search and filter rules before rendering animals.
+   * Only public animals are shown on the home page.
+   */
   const filteredAnimals = animals.filter((animal) => {
     const statusUpper = String(animal.status || "").toUpperCase();
 
-    // only public animals
     const isPublicAnimal =
       statusUpper === "AVAILABLE" || statusUpper === "APPROVED";
 
@@ -142,15 +180,17 @@ function HomePage() {
       animal.category && typeof animal.category === "object" && animal.category.id
         ? String(animal.category.id)
         : animal.category
-        ? String(animal.category)
-        : "";
+          ? String(animal.category)
+          : "";
 
     const matchesCategory =
       !selectedCategory ||
       animalCategoryName === selectedCategory ||
       animalCategoryId === selectedCategory;
 
-    const ageNum = typeof animal.age === "number" ? animal.age : Number(animal.age) || 0;
+    const ageNum =
+      typeof animal.age === "number" ? animal.age : Number(animal.age) || 0;
+
     const a = filters.age;
     const matchesAge =
       !a ||
@@ -161,12 +201,13 @@ function HomePage() {
     const lf = (filters.location || "").toLowerCase().trim();
     const matchesLocation = !lf || loc.includes(lf);
 
-    const matchesSize = !filters.size || String(animal.size || "") === String(filters.size);
+    const matchesSize =
+      !filters.size || String(animal.size || "") === String(filters.size);
 
-    // public users should not manually filter internal statuses like pending/rejected
     const matchesStatus =
       !filters.status ||
-      String(animal.status || "").toUpperCase() === String(filters.status || "").toUpperCase();
+      String(animal.status || "").toUpperCase() ===
+        String(filters.status || "").toUpperCase();
 
     return (
       matchesSearch &&
@@ -178,12 +219,19 @@ function HomePage() {
     );
   });
 
+  /**
+   * Resets the adoption request dialog state after closing or submission.
+   */
   function resetAdoptDialog() {
     setAdoptOpen(false);
     setRequestMsg("");
     setSubmittingRequest(false);
   }
 
+  /**
+   * Sends an adoption request for the currently selected animal.
+   * The user must be logged in and a valid animal must be selected.
+   */
   async function handleAdoptSubmit() {
     if (!user?.accessToken) {
       setSnackSeverity("error");
@@ -219,6 +267,7 @@ function HomePage() {
       setAdoptOpen(false);
     } catch (err) {
       console.error("Request create failed:", err);
+
       const detail =
         err?.body?.message ||
         err?.body ||
@@ -235,44 +284,46 @@ function HomePage() {
 
   return (
     <Box sx={{ p: 4 }}>
-      {isLoggedIn && (
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenAdd(true)}
-          sx={{
-            position: "fixed",
-            top: 90,
-            right: 24,
-            zIndex: 2000,
-            height: 48,
-            borderRadius: 999,
-            px: 2.5,
-            boxShadow: 10
-          }}
-        >
-          Add Animal
-        </Button>
-      )}
+      <Box sx={{ maxWidth: 1100, mx: "auto", mb: 4 }}>
+        <Box sx={{ textAlign: "center", mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>
+            {username
+              ? `Welcome to Pet Adoption, ${username} 🐾`
+              : "Welcome to Pet Adoption 🐾"}
+          </Typography>
 
-      <Box sx={{ textAlign: "center", maxWidth: 800, mx: "auto", mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          {username ? `Welcome to Pet Adoption, ${username} 🐾` : "Welcome to Pet Adoption 🐾"}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Here you can find animals that looking for a new home and start the adoption process
-        </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Here you can find animals that looking for a new home and start the adoption process
+          </Typography>
+        </Box>
       </Box>
 
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1.5,
+          mb: 3,
+          maxWidth: 1100,
+          mx: "auto",
+          flexWrap: "wrap"
+        }}
+      >
         <TextField
           placeholder="Search by name or location..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={loading}
           sx={{
-            width: { xs: "95%", sm: "70%", md: "55%" },
-            "& .MuiInputBase-root": { height: 54, fontSize: 16, borderRadius: 3 }
+            flex: 1,
+            minWidth: { xs: "100%", sm: 320, md: 500 },
+            maxWidth: 700,
+            "& .MuiInputBase-root": {
+              height: 54,
+              fontSize: 16,
+              borderRadius: 3
+            }
           }}
           InputProps={{
             startAdornment: (
@@ -283,9 +334,36 @@ function HomePage() {
           }}
         />
 
-        <IconButton color="primary" onClick={() => setFilterOpen(true)} disabled={loading}>
+        <IconButton
+          color="primary"
+          onClick={() => setFilterOpen(true)}
+          disabled={loading}
+          sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 3
+          }}
+        >
           <FilterListIcon />
         </IconButton>
+
+        {isLoggedIn && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenAdd(true)}
+            sx={{
+              height: 48,
+              borderRadius: 999,
+              px: 3,
+              fontWeight: 800,
+              boxShadow: 4,
+              whiteSpace: "nowrap"
+            }}
+          >
+            Add Animal
+          </Button>
+        )}
       </Box>
 
       <FilterDialog
@@ -327,6 +405,7 @@ function HomePage() {
             if (created) {
               const statusUpper = String(created.status || "").toUpperCase();
 
+              // Newly created animals are added only if they are visible on the public page.
               if (statusUpper === "AVAILABLE" || statusUpper === "APPROVED") {
                 setAnimals((prev) => [created, ...prev]);
               }
@@ -339,34 +418,48 @@ function HomePage() {
         />
       </AnimalFormDialog>
 
-      {loading ? (
-        <Box sx={{ textAlign: "center", mt: 6 }}>
-          <CircularProgress />
-        </Box>
-      ) : error ? (
-        <Typography color="error">Error: {error}</Typography>
-      ) : (
-        <Grid container spacing={1.25} justifyContent="center">
-          {filteredAnimals.length > 0 ? (
-            filteredAnimals.map((animal) => (
-              <Grid item key={animal.id} xs={12} sm={6} md={4} lg={2}>
-                <AnimalCard
-                  animal={animal}
-                  onClick={(a) => {
-                    setSelectedAnimal(a);
-                    setOpenDetails(true);
-                  }}
-                  onDeleted={(deletedId) =>
-                    setAnimals((prev) => prev.filter((x) => x.id !== deletedId))
-                  }
-                />
-              </Grid>
-            ))
-          ) : (
-            <Typography sx={{ m: 4 }}>No results found</Typography>
-          )}
-        </Grid>
-      )}
+      <Box
+        sx={(theme) => ({
+          ...scrollbarStyle(theme),
+          maxWidth: 1180,
+          mx: "auto",
+          mt: 1,
+          maxHeight: "62vh",
+          overflowY: "auto",
+          overflowX: "hidden",
+          px: 1,
+          pb: 2
+        })}
+      >
+        {loading ? (
+          <Box sx={{ textAlign: "center", mt: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Typography color="error">Error: {error}</Typography>
+        ) : (
+          <Grid container spacing={2} justifyContent="center" alignItems="stretch">
+            {filteredAnimals.length > 0 ? (
+              filteredAnimals.map((animal) => (
+                <Grid item key={animal.id} xs={12} sm={6} md={4} lg={3}>
+                  <AnimalCard
+                    animal={animal}
+                    onClick={(a) => {
+                      setSelectedAnimal(a);
+                      setOpenDetails(true);
+                    }}
+                    onDeleted={(deletedId) =>
+                      setAnimals((prev) => prev.filter((x) => x.id !== deletedId))
+                    }
+                  />
+                </Grid>
+              ))
+            ) : (
+              <Typography sx={{ m: 4 }}>No results found</Typography>
+            )}
+          </Grid>
+        )}
+      </Box>
 
       <AnimalDetailsDialog open={openDetails} onClose={() => setOpenDetails(false)}>
         <AnimalDetailsContent
@@ -433,12 +526,10 @@ function HomePage() {
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={resetAdoptDialog}
-            disabled={submittingRequest}
-          >
+          <Button onClick={resetAdoptDialog} disabled={submittingRequest}>
             Cancel
           </Button>
+
           <Button
             variant="contained"
             onClick={handleAdoptSubmit}

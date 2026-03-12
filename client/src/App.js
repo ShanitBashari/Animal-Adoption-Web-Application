@@ -1,7 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
-import AnimalDetailsPage from "./pages/AnimalDetailsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import MyListingsPage from "./pages/MyListingsPage";
@@ -10,6 +9,7 @@ import AdminPage from "./pages/AdminPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminRequestsPage from "./pages/AdminRequestsPage";
 import AdminAnimalsPage from "./pages/AdminAnimalsPage";
+import AdminCategoriesPage from "./pages/AdminCategoriesPage";
 import Navbar from "./components/Navbar";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -22,7 +22,6 @@ function App() {
       <Navbar />
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/animal/:id" element={<AnimalDetailsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -72,6 +71,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminAnimalsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/categories"
+            element={
+              <AdminRoute>
+                <AdminCategoriesPage />
               </AdminRoute>
             }
           />

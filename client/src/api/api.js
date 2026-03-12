@@ -1,5 +1,9 @@
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
+/**
+ * Reads the saved access token from localStorage.
+ * Returns null if auth data is missing or invalid.
+ */
 function getToken() {
   try {
     const raw = localStorage.getItem("auth");
@@ -10,6 +14,12 @@ function getToken() {
   }
 }
 
+/**
+ * Normalizes API responses:
+ * - parses JSON when available
+ * - parses plain text otherwise
+ * - throws a structured error for non-2xx responses
+ */
 async function handleResponse(response) {
   const contentType = response.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
@@ -37,9 +47,9 @@ async function handleResponse(response) {
 
 /**
  * Unified request helper:
- * - Adds Authorization header automatically (if token exists)
- * - Sets JSON headers automatically when body is a plain object
- * - Supports FormData (does NOT set Content-Type so browser adds boundary)
+ * - adds Authorization header automatically when auth is enabled
+ * - sends JSON by default for plain objects
+ * - supports FormData without manually setting Content-Type
  */
 async function request(
   path,
@@ -47,7 +57,7 @@ async function request(
     method = "GET",
     body,
     headers,
-    auth = true, // allow disabling auth header per request if needed
+    auth = true
   } = {}
 ) {
   const token = auth ? getToken() : null;
@@ -56,10 +66,10 @@ async function request(
   const finalHeaders = {
     Accept: "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(headers || {}),
+    ...(headers || {})
   };
 
-  // If it's JSON body and caller didn't explicitly set content-type
+  // Let the browser set the multipart boundary automatically for FormData.
   if (body != null && !isFormData && !finalHeaders["Content-Type"]) {
     finalHeaders["Content-Type"] = "application/json";
   }
@@ -72,15 +82,18 @@ async function request(
         ? undefined
         : isFormData
           ? body
-          : JSON.stringify(body),
+          : JSON.stringify(body)
   });
 
   return handleResponse(res);
 }
 
-/* -------------------- APIs -------------------- */
+/* -------------------- Animals API -------------------- */
 
 export const AnimalsApi = {
+  /**
+   * Fetches public animals, optionally filtered by query params.
+   */
   list({ q, category } = {}) {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
@@ -90,29 +103,48 @@ export const AnimalsApi = {
     return request(`/api/animals${suffix}`, { method: "GET" });
   },
 
+  /**
+   * Fetches the currently logged-in user's listings.
+   */
   mine() {
     return request(`/api/animals/mine`, { method: "GET" });
   },
 
+  /**
+   * Fetches a single animal by id.
+   */
   get(id) {
     return request(`/api/animals/${encodeURIComponent(id)}`, { method: "GET" });
   },
 
+  /**
+   * Creates an animal using a regular JSON payload.
+   */
   create(data) {
     return request(`/api/animals`, { method: "POST", body: data });
   },
 
+  /**
+   * Creates an animal using multipart form data,
+   * typically when an image file is included.
+   */
   createMultipart(formData) {
     return request(`/api/animals`, { method: "POST", body: formData });
   },
 
+  /**
+   * Updates an animal using a regular JSON payload.
+   */
   update(id, data) {
     return request(`/api/animals/${encodeURIComponent(id)}`, {
       method: "PUT",
-      body: data,
+      body: data
     });
   },
 
+  /**
+   * Updates an animal using multipart form data.
+   */
   updateMultipart(id, formData) {
     return request(`/api/animals/${encodeURIComponent(id)}`, {
       method: "PUT",
@@ -120,19 +152,29 @@ export const AnimalsApi = {
     });
   },
 
+  /**
+   * Deletes an animal listing.
+   */
   delete(id) {
     return request(`/api/animals/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
 
+  /**
+   * Reactivates a previously inactive animal listing.
+   */
   activate(id) {
     return request(`/api/animals/${encodeURIComponent(id)}/activate`, {
-      method: "PUT",
+      method: "PUT"
     });
-  },
-
+  }
 };
 
+/* -------------------- Requests API -------------------- */
+
 export const RequestsApi = {
+  /**
+   * Fetches adoption requests with optional filtering by user or animal.
+   */
   async list(params = {}) {
     const query = new URLSearchParams();
 
@@ -143,113 +185,184 @@ export const RequestsApi = {
     return request(`/api/requests${qs ? `?${qs}` : ""}`);
   },
 
+  /**
+   * Fetches a single adoption request by id.
+   */
   async getById(id) {
     return request(`/api/requests/${id}`);
   },
 
+  /**
+   * Creates a new adoption request.
+   */
   async create(payload) {
     return request(`/api/requests`, {
       method: "POST",
-      body: payload,
+      body: payload
     });
   },
 
+  /**
+   * Cancels an existing adoption request.
+   */
   async cancel(id) {
     return request(`/api/requests/${id}`, {
-      method: "DELETE",
+      method: "DELETE"
     });
   },
 
+  /**
+   * Approves an adoption request.
+   */
   async approve(id) {
     return request(`/api/requests/${id}/approve`, {
-      method: "POST",
+      method: "POST"
     });
   },
 
+  /**
+   * Rejects an adoption request with an optional reason.
+   */
   async reject(id, reason) {
     return request(`/api/requests/${id}/reject`, {
       method: "POST",
-      body: { reason },
+      body: { reason }
     });
-  },
+  }
 };
+
+/* -------------------- Categories API -------------------- */
 
 export const CategoriesApi = {
-  list() {
-    return request(`/api/categories`, { method: "GET" });
-  },
+  /**
+   * Fetches active categories for public dropdowns.
+   */
+  listActive: () => request(`/api/categories`),
 
-  get(id) {
-    return request(`/api/categories/${encodeURIComponent(id)}`, { method: "GET" });
-  },
+  /**
+   * Fetches all categories for admin management.
+   */
+  adminList: () => request(`/api/admin/categories`),
 
-  create(dto) {
-    return request(`/api/categories`, { method: "POST", body: dto });
-  },
+  /**
+   * Creates a new category.
+   */
+  create: (payload) =>
+    request(`/api/admin/categories`, {
+      method: "POST",
+      body: payload
+    }),
 
-  update(id, dto) {
-    return request(`/api/categories/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: dto,
+  /**
+   * Marks a category as inactive.
+   */
+  deactivate: (id) =>
+    request(`/api/admin/categories/${id}/deactivate`, {
+      method: "PATCH"
+    }),
+
+  /**
+   * Restores a previously inactive category.
+   */
+  reactivate: (id) =>
+    request(`/api/admin/categories/${id}/reactivate`, {
+      method: "PATCH"
+    })
+};
+
+/* -------------------- Auth API -------------------- */
+
+export const AuthApi = {
+  /**
+   * Registers a new user.
+   * Auth header is disabled because this endpoint is public.
+   */
+  register(payload) {
+    return request(`/api/auth/register`, {
+      method: "POST",
+      body: payload,
+      auth: false
     });
   },
 
-  delete(id) {
-    return request(`/api/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
-  },
-};
-
-export const AuthApi = {
-  register(payload) {
-    return request(`/api/auth/register`, { method: "POST", body: payload, auth: false });
-  },
-
+  /**
+   * Logs in a user and returns token-based auth data.
+   * Auth header is disabled because this endpoint is public.
+   */
   login(payload) {
-    return request(`/api/auth/login`, { method: "POST", body: payload, auth: false });
-  },
+    return request(`/api/auth/login`, {
+      method: "POST",
+      body: payload,
+      auth: false
+    });
+  }
 };
+
+/* -------------------- Admin API -------------------- */
 
 export const AdminApi = {
+  /**
+   * Fetches all users for admin management.
+   */
   users() {
     return request(`/api/admin/users`, { method: "GET" });
   },
 
+  /**
+   * Fetches all animals for admin review.
+   */
   animals() {
     return request(`/api/admin/animals`, { method: "GET" });
   },
 
+  /**
+   * Fetches all adoption requests for admin review.
+   */
   requests() {
     return request(`/api/requests`, { method: "GET" });
   },
 
+  /**
+   * Deactivates a user account.
+   */
   deactivateUser(id) {
     return request(`/api/admin/users/${encodeURIComponent(id)}/deactivate`, {
       method: "PATCH"
     });
   },
 
+  /**
+   * Reactivates a user account.
+   */
   activateUser(id) {
     return request(`/api/admin/users/${encodeURIComponent(id)}/activate`, {
       method: "PATCH"
     });
   },
 
+  /**
+   * Removes an animal as an admin action.
+   */
   removeAnimal(id) {
     return request(`/api/admin/animals/${encodeURIComponent(id)}`, {
       method: "DELETE"
     });
   },
 
+  /**
+   * Approves a pending animal listing.
+   */
   approveAnimal: (animalId) =>
     request(`/api/admin/animals/${animalId}/approve`, {
       method: "PUT"
-  }),
+    }),
 
+  /**
+   * Rejects a pending animal listing with an optional reason.
+   */
   rejectAnimal: (animalId, reason = "") =>
     request(`/api/admin/animals/${animalId}/reject`, {
       method: "PUT",
-      body: JSON.stringify({ reason })
-  })
+      body: { reason }
+    })
 };
-
-

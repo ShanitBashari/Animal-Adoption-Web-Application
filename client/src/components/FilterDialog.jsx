@@ -11,7 +11,12 @@ import {
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
+import { scrollbarStyle } from "../styles/scrollbar";
 
+/**
+ * Reusable dialog for filtering animals on the home page.
+ * The selected filter values are controlled by the parent component.
+ */
 export default function FilterDialog({
   open,
   onClose,
@@ -24,10 +29,15 @@ export default function FilterDialog({
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
 
+  /**
+   * Shared styling for select dropdown menus.
+   * Uses theme-aware colors and the shared custom scrollbar.
+   */
   const menuProps = useMemo(() => {
     return {
       PaperProps: {
         sx: {
+          ...scrollbarStyle(theme),
           bgcolor: "background.paper",
           color: "text.primary",
           border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.12 : 0.10)}`,
@@ -44,6 +54,9 @@ export default function FilterDialog({
     };
   }, [theme, isDark]);
 
+  /**
+   * Theme-aware dialog surface styling.
+   */
   const paperSx = {
     bgcolor: "background.paper",
     color: "text.primary",
@@ -52,6 +65,9 @@ export default function FilterDialog({
     boxShadow: isDark ? "0 20px 60px rgba(0,0,0,0.6)" : "0 20px 60px rgba(0,0,0,0.18)"
   };
 
+  /**
+   * Shared field background styling used across all filter inputs.
+   */
   const fieldSx = {
     "& .MuiInputBase-root": {
       bgcolor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.03)
@@ -154,18 +170,11 @@ export default function FilterDialog({
           </TextField>
 
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
-            <Button
-              variant="text"
-              onClick={onClear}
-              sx={{ fontWeight: 800 }}
-            >
+            <Button variant="text" onClick={onClear} sx={{ fontWeight: 800 }}>
               Clear
             </Button>
-            <Button
-              variant="contained"
-              onClick={onApply}
-              sx={{ fontWeight: 900 }}
-            >
+
+            <Button variant="contained" onClick={onApply} sx={{ fontWeight: 900 }}>
               Apply
             </Button>
           </Box>

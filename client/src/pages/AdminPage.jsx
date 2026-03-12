@@ -13,7 +13,6 @@ import PetsIcon from "@mui/icons-material/Pets";
 import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import PeopleIcon from "@mui/icons-material/People";
-
 import { useNavigate } from "react-router-dom";
 import { AdminApi } from "../api/api";
 import { useAuth } from "../auth/AuthContext";
@@ -34,6 +33,9 @@ function AdminDashboardPage() {
 
   const isAdmin = (user?.roles || []).includes("ADMIN");
 
+  /**
+   * Loads the main admin dashboard statistics from multiple endpoints in parallel.
+   */
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -68,11 +70,13 @@ function AdminDashboardPage() {
         }
       } catch (err) {
         console.error("Failed to load admin dashboard:", err);
+
         const msg =
           err?.body?.message ||
           err?.body ||
           err?.message ||
           "Failed to load dashboard";
+
         if (mounted) {
           setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
         }
@@ -82,6 +86,7 @@ function AdminDashboardPage() {
     }
 
     loadDashboard();
+
     return () => {
       mounted = false;
     };
@@ -95,6 +100,9 @@ function AdminDashboardPage() {
     );
   }
 
+  /**
+   * Card definitions used to render the dashboard statistics section.
+   */
   const cards = [
     {
       title: "Total Animals",
@@ -159,10 +167,12 @@ function AdminDashboardPage() {
                     p: 3,
                     borderRadius: 4,
                     transition: "0.3s",
+                    cursor: stat.onClick ? "pointer" : "default",
                     "&:hover": {
-                      transform: "scale(1.05)"
+                      transform: stat.onClick ? "scale(1.05)" : "none"
                     }
                   }}
+                  onClick={stat.onClick ? stat.onClick : undefined}
                 >
                   <CardContent>
                     <Box sx={{ color: stat.color, mb: 1 }}>
@@ -216,6 +226,14 @@ function AdminDashboardPage() {
               onClick={() => navigate("/admin/users")}
             >
               Manage Users
+            </Button>
+
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={() => navigate("/admin/categories")}
+            >
+              Manage Categories
             </Button>
           </Box>
         </>

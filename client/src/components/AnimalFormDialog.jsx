@@ -9,20 +9,22 @@ import {
   CircularProgress
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { scrollbarStyle } from "../styles/scrollbar";
 
+/**
+ * Reusable dialog wrapper for add/edit forms.
+ * Supports both direct button handlers and form submission by formId.
+ */
 export default function AnimalFormDialog({
   open,
   onClose,
   title = "",
   children,
-
-  // ✅ חדש: מזהה טופס פנימי
   formId,
 
-  // footer buttons
   primaryText = "Save",
   secondaryText = "Cancel",
-  onPrimary,     // אופציונלי: אם רוצים פעולה אחרת
+  onPrimary,
   onSecondary,
 
   loading = false,
@@ -32,15 +34,25 @@ export default function AnimalFormDialog({
   maxWidth = "sm",
   fullWidth = true
 }) {
+  /**
+   * Handles the secondary action button.
+   * Falls back to onClose when no custom handler is provided.
+   */
   const handleSecondary = () => {
     if (loading) return;
+
     if (onSecondary) onSecondary();
     else onClose?.();
   };
 
+  /**
+   * Supports two submit modes:
+   * - submit a real form by formId
+   * - call a custom click handler directly
+   */
   const primaryProps =
     formId
-      ? { type: "submit", form: formId } // ✅ זה עושה submit אמיתי גם אם הכפתור מחוץ ל-form
+      ? { type: "submit", form: formId }
       : { onClick: onPrimary };
 
   return (
@@ -62,7 +74,16 @@ export default function AnimalFormDialog({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers>{children}</DialogContent>
+      <DialogContent
+        sx={(theme) => ({
+          p: 0,
+          maxHeight: "85vh",
+          overflow: "auto",
+          ...scrollbarStyle(theme)
+        })}
+      >
+        {children}
+      </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
         <Button

@@ -31,51 +31,59 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 
 import { useNavigate } from "react-router-dom";
-import { AdminApi } from "../api/api";
+import { AnimalsApi, RequestsApi } from "../api/api";
 import { useAuth } from "../auth/AuthContext";
 import AnimalDetailsDialog from "../components/AnimalDetailsDialog";
 import AnimalDetailsContent from "../components/AnimalDetailsContent";
+import { scrollbarStyle } from "../styles/scrollbar";
 
-function AdminAnimalsPage() {
+function AdminRequestsPage() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { user } = useAuth();
 
-  const [animals, setAnimals] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [selectedAnimal, setSelectedAnimal] = useState(null);
-  const [openDetails, setOpenDetails] = useState(false);
-
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const [actionType, setActionType] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [openDetails, setOpenDetails] = useState(false);
+  const [selectedAnimal, setSelectedAnimal] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
   const isAdmin = (user?.roles || []).includes("ADMIN");
 
+  /**
+   * Loads all adoption requests for admin review.
+   */
   useEffect(() => {
     if (!isAdmin) return;
 
     let mounted = true;
 
-    async function loadAnimals() {
+    async function loadRequests() {
       try {
         setLoading(true);
         setError("");
 
-        const data = await AdminApi.animals();
+        const data = await RequestsApi.list();
+
         if (mounted) {
-          setAnimals(Array.isArray(data) ? data : []);
+          setRequests(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        console.error("Failed to load admin animals:", err);
+        console.error("Failed to load admin requests:", err);
+
         const msg =
           err?.body?.message ||
           err?.body ||
           err?.message ||
-          "Failed to load animals";
+          "Failed to load adoption requests";
 
         if (mounted) {
           setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
@@ -85,17 +93,80 @@ function AdminAnimalsPage() {
       }
     }
 
-    loadAnimals();
+    loadRequests();
+
     return () => {
       mounted = false;
     };
   }, [isAdmin]);
 
+  /**
+   * Opens the action dialog for approving or rejecting a request.
+   */
+  function handleAction(request, type) {
+    setSelectedRequest(request);
+    setActionType(type);
+    setRejectReason("");
+    setOpenDialog(true);
+  }
+
+  /**
+   * Closes the action dialog unless a request is currently being submitted.
+   */
+  function closeDialog() {
+    if (submitting) return;
+    setOpenDialog(false);
+    setSelectedRequest(null);
+    setActionType("");
+    setRejectReason("");
+  }
+
+  /**
+   * Loads the animal related to a request
+   * so the admin can inspect full details before deciding.
+   */
+  async function handleViewAnimal(request) {
+    if (!request?.animalId) return;
+
+    try {
+      setDetailsLoading(true);
+      const animal = await AnimalsApi.get(request.animalId);
+      setSelectedAnimal(animal);
+      setOpenDetails(true);
+    } catch (err) {
+      console.error("Failed to load animal details:", err);
+
+      const msg =
+        err?.body?.message ||
+        err?.body ||
+        err?.message ||
+        "Failed to load animal details";
+
+      alert(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
+  /**
+   * Formats request creation date for display.
+   */
+  function formatDate(dateStr) {
+    if (!dateStr) return "—";
+
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return dateStr;
+
+    return d.toLocaleString();
+  }
+
+  /**
+   * Maps request status to chip label, color and icon.
+   */
   function getStatusMeta(status) {
     const s = String(status || "").toUpperCase();
 
     switch (s) {
-      case "AVAILABLE":
       case "APPROVED":
         return {
           label: "Approved",
@@ -108,6 +179,12 @@ function AdminAnimalsPage() {
           color: "error",
           icon: <CancelIcon sx={{ fontSize: 16 }} />
         };
+      case "CANCELED":
+        return {
+          label: "Canceled",
+          color: "default",
+          icon: <InfoOutlinedIcon sx={{ fontSize: 16 }} />
+        };
       case "PENDING":
       default:
         return {
@@ -118,45 +195,36 @@ function AdminAnimalsPage() {
     }
   }
 
-  function handleAction(animal, type) {
-    setSelectedAnimal(animal);
-    setActionType(type);
-    setRejectReason("");
-    setOpenDialog(true);
-  }
-
-  function closeDialog() {
-    if (submitting) return;
-    setOpenDialog(false);
-    setActionType("");
-    setRejectReason("");
-  }
-
+  /**
+   * Applies the selected admin action and updates only the changed request locally.
+   */
   async function handleConfirm() {
-    if (!selectedAnimal?.id) return;
+    if (!selectedRequest?.id) return;
 
     try {
       setSubmitting(true);
 
       let updated;
+
       if (actionType === "approve") {
-        updated = await AdminApi.approveAnimal(selectedAnimal.id);
+        updated = await RequestsApi.approve(selectedRequest.id);
       } else {
-        updated = await AdminApi.rejectAnimal(selectedAnimal.id, rejectReason);
+        updated = await RequestsApi.reject(selectedRequest.id, rejectReason);
       }
 
-      setAnimals((prev) =>
-        prev.map((animal) => (animal.id === updated.id ? updated : animal))
+      setRequests((prev) =>
+        prev.map((req) => (req.id === updated.id ? updated : req))
       );
 
       closeDialog();
     } catch (err) {
-      console.error("Animal action failed:", err);
+      console.error("Request action failed:", err);
+
       const msg =
         err?.body?.message ||
         err?.body ||
         err?.message ||
-        "Failed to update animal";
+        "Failed to update request";
 
       alert(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
@@ -229,7 +297,7 @@ function AdminAnimalsPage() {
               WebkitTextFillColor: "transparent"
             })}
           >
-            Animal Approval Queue
+            Adoption Requests
           </Typography>
 
           <Typography
@@ -241,7 +309,7 @@ function AdminAnimalsPage() {
               fontWeight: 700
             })}
           >
-            Review and manage newly submitted animal listings.
+            Review and manage adoption requests submitted by users.
           </Typography>
         </Box>
 
@@ -253,67 +321,81 @@ function AdminAnimalsPage() {
           <Typography color="error" sx={{ textAlign: "center", mt: 4 }}>
             {error}
           </Typography>
-        ) : animals.length === 0 ? (
+        ) : requests.length === 0 ? (
           <Typography sx={{ textAlign: "center", mt: 4, fontWeight: 700 }}>
-            No animal listings found.
+            No adoption requests found.
           </Typography>
         ) : (
           <TableContainer
             component={Paper}
-            sx={(theme) => ({
-              borderRadius: 3,
-              overflow: "hidden",
-              border: `1px solid ${alpha(theme.palette.divider, 0.16)}`
-            })}
+            sx={(theme) => {
+              const isDark = theme.palette.mode === "dark";
+
+              return {
+                ...scrollbarStyle(theme),
+                maxHeight: "60vh",
+                borderRadius: 3,
+                overflow: "auto",
+                border: `1px solid ${alpha(theme.palette.divider, 0.16)}`,
+                backgroundColor: theme.palette.background.paper,
+                boxShadow: isDark
+                  ? `0 8px 28px ${alpha(theme.palette.common.black, 0.22)}`
+                  : `0 8px 28px ${alpha(theme.palette.common.black, 0.08)}`,
+                backdropFilter: "blur(6px)",
+                transition: "all 0.2s ease"
+              };
+            }}
           >
-            <Table>
+            <Table stickyHeader>
               <TableHead>
                 <TableRow
                   sx={(theme) => ({
-                    bgcolor: alpha(
-                      theme.palette.primary.main,
-                      theme.palette.mode === "dark" ? 0.10 : 0.06
-                    )
+                    "& .MuiTableCell-root": {
+                      backgroundColor:
+                        theme.palette.mode === "dark"
+                          ? alpha(theme.palette.primary.light, 0.08)
+                          : alpha(theme.palette.primary.main, 0.07),
+                      color: theme.palette.text.primary,
+                      borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`
+                    }
                   })}
                 >
                   <TableCell><b>Animal</b></TableCell>
-                  <TableCell><b>Owner</b></TableCell>
-                  <TableCell><b>Location</b></TableCell>
+                  <TableCell><b>Requested By</b></TableCell>
+                  <TableCell><b>Date</b></TableCell>
                   <TableCell><b>Status</b></TableCell>
-                  <TableCell><b>Description</b></TableCell>
+                  <TableCell><b>Message</b></TableCell>
                   <TableCell align="center"><b>Actions</b></TableCell>
                 </TableRow>
               </TableHead>
 
               <TableBody>
-                {animals.map((animal) => {
-                  const statusMeta = getStatusMeta(animal.status);
+                {requests.map((request) => {
+                  const statusMeta = getStatusMeta(request.status);
                   const isPending =
-                    String(animal.status || "").toUpperCase() === "PENDING";
+                    String(request.status || "").toUpperCase() === "PENDING";
 
                   return (
-                    <TableRow key={animal.id} hover>
+                    <TableRow key={request.id} hover>
                       <TableCell>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <IconButton
                             size="small"
                             color="primary"
-                            onClick={() => {
-                              setSelectedAnimal(animal);
-                              setOpenDetails(true);
-                            }}
+                            onClick={() => handleViewAnimal(request)}
+                            disabled={detailsLoading}
                           >
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
 
                           <Typography fontWeight={700}>
-                            {animal.name || `Animal #${animal.id}`}
+                            {request.animalName || `Animal #${request.animalId}`}
                           </Typography>
                         </Box>
                       </TableCell>
 
-                      <TableCell>{animal.ownerName || "—"}</TableCell>
-                      <TableCell>{animal.location || "—"}</TableCell>
+                      <TableCell>{request.userName || `User #${request.userId}`}</TableCell>
+                      <TableCell>{formatDate(request.createdAt)}</TableCell>
 
                       <TableCell>
                         <Chip
@@ -325,7 +407,7 @@ function AdminAnimalsPage() {
                         />
                       </TableCell>
 
-                      <TableCell sx={{ maxWidth: 280 }}>
+                      <TableCell sx={{ maxWidth: 260 }}>
                         <Typography
                           variant="body2"
                           sx={{
@@ -335,8 +417,18 @@ function AdminAnimalsPage() {
                             overflow: "hidden"
                           }}
                         >
-                          {animal.description || "—"}
+                          {request.message || "—"}
                         </Typography>
+
+                        {String(request.status || "").toUpperCase() === "REJECTED" &&
+                        request.reason ? (
+                          <Typography
+                            variant="caption"
+                            sx={{ color: theme.palette.error.main, fontWeight: 700 }}
+                          >
+                            Reason: {request.reason}
+                          </Typography>
+                        ) : null}
                       </TableCell>
 
                       <TableCell align="center">
@@ -344,14 +436,14 @@ function AdminAnimalsPage() {
                           <>
                             <IconButton
                               color="success"
-                              onClick={() => handleAction(animal, "approve")}
+                              onClick={() => handleAction(request, "approve")}
                             >
                               <CheckCircleIcon />
                             </IconButton>
 
                             <IconButton
                               color="error"
-                              onClick={() => handleAction(animal, "reject")}
+                              onClick={() => handleAction(request, "reject")}
                             >
                               <CancelIcon />
                             </IconButton>
@@ -391,17 +483,17 @@ function AdminAnimalsPage() {
           }}
         >
           {actionType === "approve"
-            ? "Approve Animal Listing"
-            : "Reject Animal Listing"}
+            ? "Approve Adoption Request"
+            : "Reject Adoption Request"}
         </DialogTitle>
 
         <DialogContent>
           <DialogContentText sx={{ color: "text.primary", mb: 2 }}>
-            Are you sure you want to <b>{actionType}</b> the listing for{" "}
-            <b>{selectedAnimal?.name}</b>?
+            Are you sure you want to <b>{actionType}</b> the adoption request for{" "}
+            <b>{selectedRequest?.animalName}</b>?
             <br />
             <br />
-            Owner: <b>{selectedAnimal?.ownerName || "—"}</b>
+            Requested by: <b>{selectedRequest?.userName}</b>
           </DialogContentText>
 
           {actionType === "reject" && (
@@ -442,4 +534,4 @@ function AdminAnimalsPage() {
   );
 }
 
-export default AdminAnimalsPage;
+export default AdminRequestsPage;

@@ -7,6 +7,9 @@ import {
   Typography
 } from "@mui/material";
 
+/**
+ * Simple reusable confirmation dialog for destructive or important actions.
+ */
 function ConfirmDialog({
   open,
   title,

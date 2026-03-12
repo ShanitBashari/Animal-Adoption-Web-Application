@@ -21,7 +21,7 @@ import {
   CircularProgress
 } from "@mui/material";
 
-import { alpha, useTheme } from "@mui/material/styles";
+import { alpha } from "@mui/material/styles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ToggleOffIcon from "@mui/icons-material/ToggleOff";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -33,7 +33,6 @@ import { useAuth } from "../auth/AuthContext";
 
 function AdminUsersPage() {
   const navigate = useNavigate();
-  const theme = useTheme();
   const { user } = useAuth();
 
   const [users, setUsers] = useState([]);
@@ -48,6 +47,10 @@ function AdminUsersPage() {
 
   const isAdmin = (user?.roles || []).includes("ADMIN");
 
+  /**
+   * Loads both users and animals so the page can display
+   * how many listings each user has published.
+   */
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -69,6 +72,7 @@ function AdminUsersPage() {
         }
       } catch (err) {
         console.error("Failed to load users page:", err);
+
         const msg =
           err?.body?.message ||
           err?.body ||
@@ -84,27 +88,40 @@ function AdminUsersPage() {
     }
 
     loadData();
+
     return () => {
       mounted = false;
     };
   }, [isAdmin]);
 
+  /**
+   * Counts how many animals belong to a specific user.
+   */
   function animalsPerUser(userId) {
     return animals.filter((a) => String(a.ownerUserId) === String(userId)).length;
   }
 
+  /**
+   * Converts role arrays into a simple label for display.
+   */
   function getRoleLabel(u) {
     const roles = Array.isArray(u?.roles) ? u.roles : [];
     if (roles.includes("ADMIN")) return "Admin";
     return "User";
   }
 
+  /**
+   * Opens the confirmation dialog for activate/deactivate actions.
+   */
   function openActionDialog(targetUser, type) {
     setSelectedUser(targetUser);
     setActionType(type);
     setOpenDialog(true);
   }
 
+  /**
+   * Closes the confirmation dialog unless a request is in progress.
+   */
   function closeDialog() {
     if (submitting) return;
     setOpenDialog(false);
@@ -112,6 +129,9 @@ function AdminUsersPage() {
     setActionType("");
   }
 
+  /**
+   * Applies the selected user action and updates the changed user locally.
+   */
   async function handleConfirm() {
     if (!selectedUser?.id) return;
 
@@ -119,6 +139,7 @@ function AdminUsersPage() {
       setSubmitting(true);
 
       let updated;
+
       if (actionType === "deactivate") {
         updated = await AdminApi.deactivateUser(selectedUser.id);
       } else {
@@ -132,6 +153,7 @@ function AdminUsersPage() {
       closeDialog();
     } catch (err) {
       console.error("User action failed:", err);
+
       const msg =
         err?.body?.message ||
         err?.body ||
@@ -371,8 +393,8 @@ function AdminUsersPage() {
             {submitting
               ? "Saving..."
               : actionType === "deactivate"
-              ? "Deactivate"
-              : "Activate"}
+                ? "Deactivate"
+                : "Activate"}
           </Button>
         </DialogActions>
       </Dialog>

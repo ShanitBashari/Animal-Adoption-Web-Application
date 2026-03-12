@@ -1,6 +1,10 @@
 import { Dialog, DialogContent, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
+/**
+ * Reusable dialog container for displaying animal details content.
+ * It handles dialog sizing, backdrop styling and the close button.
+ */
 export default function AnimalDetailsDialog({ open, onClose, children }) {
   return (
     <Dialog
@@ -26,15 +30,24 @@ export default function AnimalDetailsDialog({ open, onClose, children }) {
     >
       <IconButton
         onClick={onClose}
-        sx={{
+        sx={(theme) => ({
           position: "absolute",
           top: 12,
           right: 12,
-          zIndex: 10,
-          color: "rgba(255,255,255,0.9)",
-          bgcolor: "rgba(255,255,255,0.08)",
-          "&:hover": { bgcolor: "rgba(255,255,255,0.12)" }
-        }}
+          backgroundColor:
+            theme.palette.mode === "dark"
+              ? "rgba(0,0,0,0.55)"
+              : "rgba(255,255,255,0.9)",
+          color: theme.palette.text.primary,
+          boxShadow: theme.shadows[3],
+          backdropFilter: "blur(4px)",
+          "&:hover": {
+            backgroundColor:
+              theme.palette.mode === "dark"
+                ? "rgba(0,0,0,0.75)"
+                : "rgba(255,255,255,1)"
+          }
+        })}
       >
         <CloseIcon />
       </IconButton>
