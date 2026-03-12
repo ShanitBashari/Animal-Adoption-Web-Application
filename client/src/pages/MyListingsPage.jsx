@@ -359,7 +359,7 @@ function MyListingsPage() {
                         setOpenDetails(true);
                       }}
                       sx={{
-                        bgcolor: "#e3f2fd",
+                        bgcolor: "#687680",
                         border: "1px solid #90caf9"
                       }}
                     >
