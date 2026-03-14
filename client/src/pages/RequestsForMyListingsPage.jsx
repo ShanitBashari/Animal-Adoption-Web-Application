@@ -35,9 +35,8 @@ import { AnimalsApi, RequestsApi } from "../api/api";
 import { useAuth } from "../auth/AuthContext";
 import AnimalDetailsDialog from "../components/AnimalDetailsDialog";
 import AnimalDetailsContent from "../components/AnimalDetailsContent";
-import { scrollbarStyle } from "../styles/scrollbar";
 
-function AdminRequestsPage() {
+function RequestsForMyListingsPage() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { user } = useAuth();
@@ -56,53 +55,37 @@ function AdminRequestsPage() {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  const isAdmin = (user?.roles || []).includes("ADMIN");
+  async function loadRequests() {
+    try {
+      setLoading(true);
+      setError("");
 
-  /**
-   * Loads all adoption requests for admin review.
-   */
+      const data = await RequestsApi.received();
+      setRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load received requests:", err);
+
+      const msg =
+        err?.body?.message ||
+        err?.body ||
+        err?.message ||
+        "Failed to load received adoption requests";
+
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (!isAdmin) return;
-
-    let mounted = true;
-
-    async function loadRequests() {
-      try {
-        setLoading(true);
-        setError("");
-
-        const data = await RequestsApi.list();
-
-        if (mounted) {
-          setRequests(Array.isArray(data) ? data : []);
-        }
-      } catch (err) {
-        console.error("Failed to load admin requests:", err);
-
-        const msg =
-          err?.body?.message ||
-          err?.body ||
-          err?.message ||
-          "Failed to load adoption requests";
-
-        if (mounted) {
-          setError(typeof msg === "string" ? msg : JSON.stringify(msg).slice(0, 200));
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    if (!user?.accessToken) {
+      navigate("/login");
+      return;
     }
 
     loadRequests();
+  }, [user?.accessToken, navigate]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [isAdmin]);
-
-  /**
-   * Opens the action dialog for approving or rejecting a request.
-   */
   function handleAction(request, type) {
     setSelectedRequest(request);
     setActionType(type);
@@ -110,9 +93,6 @@ function AdminRequestsPage() {
     setOpenDialog(true);
   }
 
-  /**
-   * Closes the action dialog unless a request is currently being submitted.
-   */
   function closeDialog() {
     if (submitting) return;
     setOpenDialog(false);
@@ -121,10 +101,6 @@ function AdminRequestsPage() {
     setRejectReason("");
   }
 
-  /**
-   * Loads the animal related to a request
-   * so the admin can inspect full details before deciding.
-   */
   async function handleViewAnimal(request) {
     if (!request?.animalId) return;
 
@@ -148,9 +124,6 @@ function AdminRequestsPage() {
     }
   }
 
-  /**
-   * Formats request creation date for display.
-   */
   function formatDate(dateStr) {
     if (!dateStr) return "—";
 
@@ -160,9 +133,6 @@ function AdminRequestsPage() {
     return d.toLocaleString();
   }
 
-  /**
-   * Maps request status to chip label, color and icon.
-   */
   function getStatusMeta(status) {
     const s = String(status || "").toUpperCase();
 
@@ -195,28 +165,20 @@ function AdminRequestsPage() {
     }
   }
 
-  /**
-   * Applies the selected admin action and updates only the changed request locally.
-   */
   async function handleConfirm() {
     if (!selectedRequest?.id) return;
 
     try {
       setSubmitting(true);
 
-      let updated;
-
       if (actionType === "approve") {
-        updated = await RequestsApi.approve(selectedRequest.id);
+        await RequestsApi.approve(selectedRequest.id);
       } else {
-        updated = await RequestsApi.reject(selectedRequest.id, rejectReason);
+        await RequestsApi.reject(selectedRequest.id, rejectReason);
       }
 
-      setRequests((prev) =>
-        prev.map((req) => (req.id === updated.id ? updated : req))
-      );
-
       closeDialog();
+      await loadRequests();
     } catch (err) {
       console.error("Request action failed:", err);
 
@@ -232,18 +194,10 @@ function AdminRequestsPage() {
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <Typography sx={{ textAlign: "center", mt: 10 }}>
-        Access Denied
-      </Typography>
-    );
-  }
-
   return (
     <>
       <Box
-        onClick={() => navigate("/admin")}
+        onClick={() => navigate("/")}
         sx={(theme) => {
           const accent =
             theme.palette.mode === "dark"
@@ -278,7 +232,7 @@ function AdminRequestsPage() {
         }}
       >
         <ArrowBackIcon fontSize="small" />
-        <Typography variant="body2">Back to Dashboard</Typography>
+        <Typography variant="body2">Back to Home</Typography>
       </Box>
 
       <Container maxWidth="lg" sx={{ mt: 6 }}>
@@ -297,7 +251,7 @@ function AdminRequestsPage() {
               WebkitTextFillColor: "transparent"
             })}
           >
-            Adoption Requests
+            Requests For My Animals
           </Typography>
 
           <Typography
@@ -309,7 +263,7 @@ function AdminRequestsPage() {
               fontWeight: 700
             })}
           >
-            Review and manage adoption requests submitted by users.
+            Review and manage adoption requests received on the animals you posted.
           </Typography>
         </Box>
 
@@ -323,41 +277,25 @@ function AdminRequestsPage() {
           </Typography>
         ) : requests.length === 0 ? (
           <Typography sx={{ textAlign: "center", mt: 4, fontWeight: 700 }}>
-            No adoption requests found.
+            No requests received yet.
           </Typography>
         ) : (
           <TableContainer
             component={Paper}
-            sx={(theme) => {
-              const isDark = theme.palette.mode === "dark";
-
-              return {
-                ...scrollbarStyle(theme),
-                maxHeight: "60vh",
-                borderRadius: 3,
-                overflow: "auto",
-                border: `1px solid ${alpha(theme.palette.divider, 0.16)}`,
-                backgroundColor: theme.palette.background.paper,
-                boxShadow: isDark
-                  ? `0 8px 28px ${alpha(theme.palette.common.black, 0.22)}`
-                  : `0 8px 28px ${alpha(theme.palette.common.black, 0.08)}`,
-                backdropFilter: "blur(6px)",
-                transition: "all 0.2s ease"
-              };
-            }}
+            sx={(theme) => ({
+              borderRadius: 3,
+              overflow: "hidden",
+              border: `1px solid ${alpha(theme.palette.divider, 0.16)}`
+            })}
           >
-            <Table stickyHeader>
+            <Table>
               <TableHead>
                 <TableRow
                   sx={(theme) => ({
-                    "& .MuiTableCell-root": {
-                      backgroundColor:
-                        theme.palette.mode === "dark"
-                          ? alpha(theme.palette.primary.light, 0.08)
-                          : alpha(theme.palette.primary.main, 0.07),
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`
-                    }
+                    bgcolor: alpha(
+                      theme.palette.primary.main,
+                      theme.palette.mode === "dark" ? 0.10 : 0.06
+                    )
                   })}
                 >
                   <TableCell><b>Animal</b></TableCell>
@@ -394,7 +332,10 @@ function AdminRequestsPage() {
                         </Box>
                       </TableCell>
 
-                      <TableCell>{request.userName || `User #${request.userId}`}</TableCell>
+                      <TableCell>
+                        {request.userName || `User #${request.userId}`}
+                      </TableCell>
+
                       <TableCell>{formatDate(request.createdAt)}</TableCell>
 
                       <TableCell>
@@ -407,14 +348,14 @@ function AdminRequestsPage() {
                         />
                       </TableCell>
 
-                      <TableCell sx={{ maxWidth: 260 }}>
+                      <TableCell>
                         <Typography
                           variant="body2"
                           sx={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden"
+                            maxWidth: 260,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
                           }}
                         >
                           {request.message || "—"}
@@ -451,7 +392,7 @@ function AdminRequestsPage() {
                         ) : (
                           <Typography
                             variant="body2"
-                            sx={{ opacity: 0.6, display: "inline-block", ml: 1 }}
+                            sx={{ opacity: 0.6 }}
                           >
                             —
                           </Typography>
@@ -534,4 +475,4 @@ function AdminRequestsPage() {
   );
 }
 
-export default AdminRequestsPage;
+export default RequestsForMyListingsPage;

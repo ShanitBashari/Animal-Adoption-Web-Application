@@ -28,7 +28,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import AnimalDetailsDialog from "../components/AnimalDetailsDialog";
 import AnimalDetailsContent from "../components/AnimalDetailsContent";
 
-function AdoptionRequestsPage() {
+function MyAdoptionRequestsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -60,7 +60,7 @@ function AdoptionRequestsPage() {
         setLoading(true);
         setError("");
 
-        const data = await RequestsApi.list({ userId: user.id });
+        const data = await RequestsApi.mine();
 
         if (mounted) {
           setMyRequests(Array.isArray(data) ? data : []);
@@ -87,7 +87,7 @@ function AdoptionRequestsPage() {
     return () => {
       mounted = false;
     };
-  }, [user?.accessToken, user?.id, navigate]);
+  }, [user?.accessToken, navigate]);
 
   /**
    * Cancels a pending adoption request and updates only that request locally.
@@ -369,7 +369,7 @@ function AdoptionRequestsPage() {
                         </Typography>
                       ) : null}
 
-                      {req.reason && req.status === "REJECTED" ? (
+                      {req.reason && String(req.status || "").toUpperCase() === "REJECTED" ? (
                         <Typography
                           variant="body2"
                           sx={(theme) => ({
@@ -464,4 +464,4 @@ function AdoptionRequestsPage() {
   );
 }
 
-export default AdoptionRequestsPage;
+export default MyAdoptionRequestsPage;

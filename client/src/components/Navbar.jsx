@@ -46,16 +46,18 @@ function Navbar() {
   const isLoggedIn = !!user?.accessToken;
   const isAdmin = (user?.roles || []).includes("ADMIN");
 
-  /**
-   * Builds the navigation list dynamically based on authentication state and user role.
-   */
   const menuItems = [
     { text: "Home", icon: <HomeIcon />, path: "/" },
 
     ...(isLoggedIn
       ? [
           { text: "My Animals", icon: <PetsIcon />, path: "/my-animals" },
-          { text: "Adoption Requests", icon: <MailIcon />, path: "/requests" }
+          { text: "My Adoption Requests", icon: <MailIcon />, path: "/my-requests" },
+          {
+            text: "Requests on My Listings",
+            icon: <DashboardIcon />,
+            path: "/my-listing-requests"
+          }
         ]
       : []),
 
@@ -70,18 +72,11 @@ function Navbar() {
       : [])
   ];
 
-  /**
-   * Navigates to the target route and closes the side drawer.
-   */
   const handleNavigate = (path) => {
     navigate(path);
     setOpen(false);
   };
 
-  /**
-   * Logs the user out, shows a toast message,
-   * closes the drawer and redirects to the login page.
-   */
   const handleLogout = () => {
     logout();
     toast.success("Logged out successfully 👋", {
@@ -92,9 +87,6 @@ function Navbar() {
     navigate("/login", { replace: true });
   };
 
-  /**
-   * Shared theme-aware style values used across the navbar and drawer.
-   */
   const drawerBg = theme.palette.background.paper;
   const drawerText = theme.palette.text.primary;
   const iconColor = theme.palette.primary.main;
@@ -145,6 +137,30 @@ function Navbar() {
             Home
           </Button>
 
+          {isLoggedIn && (
+            <>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MailIcon />}
+                onClick={() => navigate("/my-requests")}
+                sx={outlinedBtnSx}
+              >
+                My Requests
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<PetsIcon />}
+                onClick={() => navigate("/my-listing-requests")}
+                sx={outlinedBtnSx}
+              >
+                My Animals Requests
+              </Button>
+            </>
+          )}
+
           {isAdmin && (
             <Button
               variant="outlined"
@@ -185,13 +201,13 @@ function Navbar() {
           sx: {
             bgcolor: drawerBg,
             color: drawerText,
-            width: 260,
+            width: 300,
             borderRight: `1px solid ${theme.palette.divider}`
           }
         }}
       >
         <Box sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1, fontWeight: 900 }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 900 }}>
             Navigation
           </Typography>
 

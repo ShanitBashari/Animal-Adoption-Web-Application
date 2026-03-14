@@ -29,7 +29,7 @@ import AnimalCard from "../components/AnimalCard";
 import { AnimalsApi } from "../api/api";
 import { useAuth } from "../auth/AuthContext";
 
-function MyListingsPage() {
+function MyAnimalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -285,7 +285,7 @@ function MyListingsPage() {
               };
             }}
           >
-            My Listings <PetsIcon />
+            My Animals <PetsIcon />
           </Typography>
 
           <Typography
@@ -295,7 +295,7 @@ function MyListingsPage() {
               color: alpha(theme.palette.text.primary, 0.75)
             })}
           >
-            Manage the animals you’ve listed for adoption — view, edit, or remove your posts.
+            Manage the animals you’ve listed for adoption - view, edit, or remove your posts.
           </Typography>
         </Box>
 
@@ -317,6 +317,7 @@ function MyListingsPage() {
               const statusUpper = String(animal.status || "").toUpperCase();
               const isInactive = statusUpper === "INACTIVE";
               const isPending = statusUpper === "PENDING";
+              const isAdopted = statusUpper === "ADOPTED";
               const isActivating = activatingId === animal.id;
               const statusMeta = getStatusMeta(statusUpper);
 
@@ -394,6 +395,19 @@ function MyListingsPage() {
                       >
                         Waiting for approval
                       </Button>
+                    ) : isAdopted ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled
+                        sx={{
+                          borderRadius: 999,
+                          textTransform: "none",
+                          fontWeight: 800
+                        }}
+                      >
+                        Already Adopted
+                      </Button>
                     ) : (
                       <>
                         <IconButton
@@ -423,6 +437,7 @@ function MyListingsPage() {
                         </IconButton>
                       </>
                     )}
+
                   </Box>
                 </Grid>
               );
@@ -483,4 +498,4 @@ function MyListingsPage() {
   );
 }
 
-export default MyListingsPage;
+export default MyAnimalsPage;

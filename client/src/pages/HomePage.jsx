@@ -68,10 +68,6 @@ function HomePage() {
   const addSubmitRef = useRef(null);
   const [addLoading, setAddLoading] = useState(false);
 
-  /**
-   * Loads all animals when the page is opened.
-   * The page later filters only public animals for display.
-   */
   useEffect(() => {
     async function load() {
       try {
@@ -102,10 +98,6 @@ function HomePage() {
     load();
   }, []);
 
-  /**
-   * Loads active categories for the filter dialog.
-   * Categories are sorted alphabetically for a better user experience.
-   */
   useEffect(() => {
     let mounted = true;
 
@@ -133,13 +125,6 @@ function HomePage() {
     };
   }, []);
 
-  /**
-   * Extracts a readable category name from different possible animal shapes.
-   * This helps support backend responses where category may be:
-   * - a string
-   * - an object
-   * - a fallback field like categoryName
-   */
   function categoryNameFromAnimal(animal) {
     if (!animal) return "";
 
@@ -156,10 +141,6 @@ function HomePage() {
     return "";
   }
 
-  /**
-   * Applies all search and filter rules before rendering animals.
-   * Only public animals are shown on the home page.
-   */
   const filteredAnimals = animals.filter((animal) => {
     const statusUpper = String(animal.status || "").toUpperCase();
 
@@ -219,19 +200,12 @@ function HomePage() {
     );
   });
 
-  /**
-   * Resets the adoption request dialog state after closing or submission.
-   */
   function resetAdoptDialog() {
     setAdoptOpen(false);
     setRequestMsg("");
     setSubmittingRequest(false);
   }
 
-  /**
-   * Sends an adoption request for the currently selected animal.
-   * The user must be logged in and a valid animal must be selected.
-   */
   async function handleAdoptSubmit() {
     if (!user?.accessToken) {
       setSnackSeverity("error");
@@ -240,11 +214,9 @@ function HomePage() {
       return;
     }
 
-    const currentUserId = user?.id || user?.userId;
-
-    if (!currentUserId || !selectedAnimal?.id) {
+    if (!selectedAnimal?.id) {
       setSnackSeverity("error");
-      setSnackMsg("Missing user or animal information.");
+      setSnackMsg("Missing animal information.");
       setSnackOpen(true);
       return;
     }
@@ -254,7 +226,6 @@ function HomePage() {
 
       await RequestsApi.create({
         animalId: selectedAnimal.id,
-        userId: currentUserId,
         message: requestMsg || ""
       });
 
@@ -405,7 +376,6 @@ function HomePage() {
             if (created) {
               const statusUpper = String(created.status || "").toUpperCase();
 
-              // Newly created animals are added only if they are visible on the public page.
               if (statusUpper === "AVAILABLE" || statusUpper === "APPROVED") {
                 setAnimals((prev) => [created, ...prev]);
               }

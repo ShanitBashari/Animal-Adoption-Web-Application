@@ -27,7 +27,6 @@ function AdminDashboardPage() {
   const [stats, setStats] = useState({
     totalAnimals: 0,
     pendingAnimals: 0,
-    adoptionRequests: 0,
     totalUsers: 0
   });
 
@@ -64,7 +63,6 @@ function AdminDashboardPage() {
           setStats({
             totalAnimals: animalsArr.length,
             pendingAnimals: pendingAnimalsCount,
-            adoptionRequests: requestsArr.length,
             totalUsers: usersArr.length
           });
         }
@@ -115,12 +113,6 @@ function AdminDashboardPage() {
       value: stats.pendingAnimals,
       icon: <PendingActionsIcon fontSize="large" />,
       color: "#ff9800"
-    },
-    {
-      title: "Adoption Requests",
-      value: stats.adoptionRequests,
-      icon: <FavoriteIcon fontSize="large" />,
-      color: "#f44336"
     },
     {
       title: "Registered Users",
@@ -210,14 +202,6 @@ function AdminDashboardPage() {
               onClick={() => navigate("/admin/animals")}
             >
               Review Animal Requests
-            </Button>
-
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => navigate("/admin/requests")}
-            >
-              Review Adoption Requests
             </Button>
 
             <Button

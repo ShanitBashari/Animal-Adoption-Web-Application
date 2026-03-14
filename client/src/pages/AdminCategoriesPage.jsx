@@ -415,17 +415,36 @@ function AdminCategoriesPage() {
           >
             <Table stickyHeader>
               <TableHead>
-                <TableRow
-                  sx={(theme) => ({
-                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.1 : 0.06)
-                  })}
-                >
-                  <TableCell><b>Name</b></TableCell>
-                  <TableCell><b>Status</b></TableCell>
-                  <TableCell align="center"><b>Actions</b></TableCell>
+                <TableRow>
+                  <TableCell
+                    sx={(theme) => ({
+                      bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.1 : 0.06),
+                      fontWeight: 800
+                    })}
+                  >
+                    <b>Name</b>
+                  </TableCell>
+
+                  <TableCell
+                    sx={(theme) => ({
+                      bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.1 : 0.06),
+                      fontWeight: 800
+                    })}
+                  >
+                    <b>Status</b>
+                  </TableCell>
+
+                  <TableCell
+                    align="center"
+                    sx={(theme) => ({
+                      bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.1 : 0.06),
+                      fontWeight: 800
+                    })}
+                  >
+                    <b>Actions</b>
+                  </TableCell>
                 </TableRow>
               </TableHead>
-
               <TableBody>
                 {categories.map((cat) => (
                   <TableRow key={cat.id} hover>

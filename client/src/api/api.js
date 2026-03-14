@@ -174,6 +174,7 @@ export const AnimalsApi = {
 export const RequestsApi = {
   /**
    * Fetches adoption requests with optional filtering by user or animal.
+   * Keep only if still needed for admin/debug purposes.
    */
   async list(params = {}) {
     const query = new URLSearchParams();
@@ -183,6 +184,24 @@ export const RequestsApi = {
 
     const qs = query.toString();
     return request(`/api/requests${qs ? `?${qs}` : ""}`);
+  },
+
+  /**
+   * Fetches adoption requests created by the authenticated user.
+   */
+  async mine() {
+    return request(`/api/requests/mine`, {
+      method: "GET"
+    });
+  },
+
+  /**
+   * Fetches adoption requests received on animals owned by the authenticated user.
+   */
+  async received() {
+    return request(`/api/requests/received`, {
+      method: "GET"
+    });
   },
 
   /**

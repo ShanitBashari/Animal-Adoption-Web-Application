@@ -54,9 +54,6 @@ function AdminAnimalsPage() {
 
   const isAdmin = (user?.roles || []).includes("ADMIN");
 
-  /**
-   * Loads all animals for admin approval/review.
-   */
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -96,9 +93,6 @@ function AdminAnimalsPage() {
     };
   }, [isAdmin]);
 
-  /**
-   * Maps animal status to a display chip for the admin table.
-   */
   function getStatusMeta(status) {
     const s = String(status || "").toUpperCase();
 
@@ -126,9 +120,6 @@ function AdminAnimalsPage() {
     }
   }
 
-  /**
-   * Opens the approve/reject dialog for the selected animal.
-   */
   function handleAction(animal, type) {
     setSelectedAnimal(animal);
     setActionType(type);
@@ -136,9 +127,6 @@ function AdminAnimalsPage() {
     setOpenDialog(true);
   }
 
-  /**
-   * Closes the action dialog unless a request is in progress.
-   */
   function closeDialog() {
     if (submitting) return;
     setOpenDialog(false);
@@ -146,9 +134,6 @@ function AdminAnimalsPage() {
     setRejectReason("");
   }
 
-  /**
-   * Applies the selected animal action and updates only the changed item locally.
-   */
   async function handleConfirm() {
     if (!selectedAnimal?.id) return;
 
@@ -279,36 +264,20 @@ function AdminAnimalsPage() {
         ) : (
           <TableContainer
             component={Paper}
-            sx={(theme) => {
-              const isDark = theme.palette.mode === "dark";
-
-              return {
-                ...scrollbarStyle(theme),
-                maxHeight: "60vh",
-                borderRadius: 3,
-                overflow: "auto",
-                border: `1px solid ${alpha(theme.palette.divider, 0.16)}`,
-                backgroundColor: theme.palette.background.paper,
-                boxShadow: isDark
-                  ? `0 8px 28px ${alpha(theme.palette.common.black, 0.22)}`
-                  : `0 8px 28px ${alpha(theme.palette.common.black, 0.08)}`,
-                backdropFilter: "blur(6px)",
-                transition: "all 0.2s ease"
-              };
-            }}
+            sx={(theme) => ({
+              borderRadius: 3,
+              overflow: "hidden",
+              border: `1px solid ${alpha(theme.palette.divider, 0.16)}`
+            })}
           >
-            <Table stickyHeader>
+            <Table>
               <TableHead>
                 <TableRow
                   sx={(theme) => ({
-                    "& .MuiTableCell-root": {
-                      backgroundColor:
-                        theme.palette.mode === "dark"
-                          ? alpha(theme.palette.primary.light, 0.08)
-                          : alpha(theme.palette.primary.main, 0.07),
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${alpha(theme.palette.divider, 0.2)}`
-                    }
+                    bgcolor: alpha(
+                      theme.palette.primary.main,
+                      theme.palette.mode === "dark" ? 0.10 : 0.06
+                    )
                   })}
                 >
                   <TableCell><b>Animal</b></TableCell>
@@ -348,7 +317,20 @@ function AdminAnimalsPage() {
                       </TableCell>
 
                       <TableCell>{animal.ownerName || "—"}</TableCell>
-                      <TableCell>{animal.location || "—"}</TableCell>
+
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            maxWidth: 280,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
+                          }}
+                        >
+                          {animal.location || "—"}
+                        </Typography>
+                      </TableCell>
 
                       <TableCell>
                         <Chip
@@ -360,14 +342,14 @@ function AdminAnimalsPage() {
                         />
                       </TableCell>
 
-                      <TableCell sx={{ maxWidth: 280 }}>
+                      <TableCell>
                         <Typography
                           variant="body2"
                           sx={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden"
+                            maxWidth: 260,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
                           }}
                         >
                           {animal.description || "—"}
@@ -392,10 +374,7 @@ function AdminAnimalsPage() {
                             </IconButton>
                           </>
                         ) : (
-                          <Typography
-                            variant="body2"
-                            sx={{ opacity: 0.6, display: "inline-block", ml: 1 }}
-                          >
+                          <Typography variant="body2" sx={{ opacity: 0.6 }}>
                             —
                           </Typography>
                         )}
