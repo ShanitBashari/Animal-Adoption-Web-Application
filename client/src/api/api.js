@@ -1,16 +1,47 @@
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
+const SESSION_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+
+/**
+ * Reads full auth object from localStorage.
+ */
+function getAuth() {
+  try {
+    const raw = localStorage.getItem("auth");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Reads the saved access token from localStorage.
- * Returns null if auth data is missing or invalid.
  */
 function getToken() {
-  try {
-    const raw = localStorage.getItem("auth");
-    const auth = raw ? JSON.parse(raw) : null;
-    return auth?.accessToken || null;
-  } catch {
-    return null;
+  const auth = getAuth();
+  return auth?.accessToken || null;
+}
+
+/**
+ * Returns true if session expiration time exists and has already passed.
+ */
+function isSessionExpired() {
+  const auth = getAuth();
+  const expiresAt = auth?.expiresAt;
+
+  return Boolean(expiresAt && Date.now() >= expiresAt);
+}
+
+/**
+ * Clears auth data and redirects user to login.
+ */
+function forceLogout() {
+  localStorage.removeItem("auth");
+
+  const currentPath = window.location.pathname + window.location.search;
+  const target = `/login?expired=1&redirect=${encodeURIComponent(currentPath)}`;
+
+  if (window.location.pathname !== "/login") {
+    window.location.href = target;
   }
 }
 
@@ -18,6 +49,7 @@ function getToken() {
  * Normalizes API responses:
  * - parses JSON when available
  * - parses plain text otherwise
+ * - redirects to login on 401
  * - throws a structured error for non-2xx responses
  */
 async function handleResponse(response) {
@@ -36,6 +68,10 @@ async function handleResponse(response) {
           ? body
           : response.statusText || `HTTP ${response.status}`;
 
+    if (response.status === 401) {
+      forceLogout();
+    }
+
     const err = new Error(msg);
     err.status = response.status;
     err.body = body;
@@ -50,6 +86,7 @@ async function handleResponse(response) {
  * - adds Authorization header automatically when auth is enabled
  * - sends JSON by default for plain objects
  * - supports FormData without manually setting Content-Type
+ * - redirects to login when local session already expired
  */
 async function request(
   path,
@@ -60,6 +97,11 @@ async function request(
     auth = true
   } = {}
 ) {
+  if (auth && isSessionExpired()) {
+    forceLogout();
+    throw new Error("Session expired");
+  }
+
   const token = auth ? getToken() : null;
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 
@@ -69,7 +111,6 @@ async function request(
     ...(headers || {})
   };
 
-  // Let the browser set the multipart boundary automatically for FormData.
   if (body != null && !isFormData && !finalHeaders["Content-Type"]) {
     finalHeaders["Content-Type"] = "application/json";
   }

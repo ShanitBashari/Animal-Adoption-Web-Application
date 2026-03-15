@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Container,
   TextField,
@@ -14,26 +14,23 @@ import {
 import { useAuth } from "../auth/AuthContext";
 
 function LoginPage() {
-
-  // React Router navigation
   const navigate = useNavigate();
-
-  // login function from authentication context
+  const location = useLocation();
   const { login } = useAuth();
 
-  // form state
   const [values, setValues] = useState({ username: "", password: "" });
-
-  // validation errors for fields
   const [errors, setErrors] = useState({});
-
-  // error returned from the server
   const [serverError, setServerError] = useState("");
-
-  // loading state during login request
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const expired = params.get("expired");
 
+    if (expired === "1") {
+      setServerError("Your session has expired. Please log in again.");
+    }
+  }, [location.search]);
   /**
    * Updates form state when user types in an input field.
    * Also clears previous validation and server errors.
@@ -43,7 +40,6 @@ function LoginPage() {
     setErrors({ ...errors, [e.target.name]: "" });
     setServerError("");
   };
-
 
   /**
    * Performs simple client-side validation before submitting.
@@ -86,7 +82,6 @@ function LoginPage() {
    * 3. redirects to home on success
    */
   const handleSubmit = async (e) => {
-
     e.preventDefault();
 
     if (!validate()) return;
@@ -95,20 +90,16 @@ function LoginPage() {
     setServerError("");
 
     try {
-
       await login(values.username.trim(), values.password);
 
-      // redirect after successful login
-      navigate("/", { replace: true });
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get("redirect") || "/";
 
+      navigate(redirect, { replace: true });
     } catch (err) {
-
       setServerError(toFriendlyMessage(err));
-
     } finally {
-
       setSubmitting(false);
-
     }
   };
 
