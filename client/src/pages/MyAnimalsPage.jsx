@@ -416,7 +416,7 @@ function MyAnimalsPage() {
                             setOpenEdit(true);
                           }}
                           sx={{
-                            bgcolor: "#fff3e0",
+                            bgcolor: "#ebb866",
                             border: "1px solid #ffcc80"
                           }}
                         >
@@ -429,7 +429,7 @@ function MyAnimalsPage() {
                             setOpenDelete(true);
                           }}
                           sx={{
-                            bgcolor: "#ffebee",
+                            bgcolor: "#df5d71",
                             border: "1px solid #ef9a9a"
                           }}
                         >

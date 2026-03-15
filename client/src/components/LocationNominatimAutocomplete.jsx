@@ -52,7 +52,7 @@ export default function LocationNominatimAutocomplete({
     setLoading(true);
 
     const q = encodeURIComponent(debounced);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${q}&addressdetails=1&limit=6`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${q}&addressdetails=1&limit=6&accept-language=en`;
 
     fetch(url, {
       method: "GET",
